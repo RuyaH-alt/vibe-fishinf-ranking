@@ -1,0 +1,2265 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>물멍 수조 낚시</title>
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+      :root {
+        --bg-page: #09131d;
+        --bg-panel: #0f1e2e;
+        --border-subtle: rgba(148, 163, 184, 0.16);
+        --text-main: #f1f5f9;
+        --text-muted: #94a3b8;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: var(--bg-page);
+        color: var(--text-main);
+        font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .mono-num {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+        font-variant-numeric: tabular-nums;
+      }
+
+      header {
+        border-bottom: 1px solid var(--border-subtle);
+        background: rgba(11, 23, 36, 0.92);
+        backdrop-filter: blur(8px);
+      }
+
+      .header-inner {
+        max-width: 1380px;
+        margin: 0 auto;
+        padding: 0 20px;
+        height: 62px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      .brand {
+        font-size: 1.15rem;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        white-space: nowrap;
+      }
+
+      .nav-links {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+      }
+
+      .nav-link {
+        background: none;
+        border: none;
+        color: #cbd5e1;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        padding: 4px 2px;
+        white-space: nowrap;
+      }
+
+      .nav-link:hover {
+        color: #ffffff;
+        text-decoration: underline;
+        text-underline-offset: 4px;
+      }
+
+      .nav-link-rank {
+        color: #fbbf24;
+        font-weight: 700;
+      }
+
+      .btn-mute {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        border-radius: 8px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(30, 41, 59, 0.85);
+        color: #e2e8f0;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .btn-mute:hover {
+        background: rgba(51, 65, 85, 0.9);
+      }
+
+      main {
+        flex: 1;
+        max-width: 1380px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 20px;
+        display: flex;
+        gap: 22px;
+        align-items: stretch;
+      }
+
+      .stage-col {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .tank-wrapper {
+        position: relative;
+        width: 100%;
+        height: 540px;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid rgba(100, 116, 139, 0.45);
+        background: #071624;
+        box-shadow: 0 22px 48px rgba(0, 0, 0, 0.45);
+        user-select: none;
+      }
+
+      #tankCanvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        cursor: crosshair;
+      }
+
+      .empty-hint {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+      }
+
+      .empty-hint-box {
+        padding: 12px 20px;
+        border-radius: 8px;
+        background: rgba(9, 19, 29, 0.78);
+        border: 1px solid rgba(148, 163, 184, 0.28);
+        font-size: 0.875rem;
+        color: #e2e8f0;
+      }
+
+      .notice-toast {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        z-index: 20;
+        max-width: 320px;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+        display: none;
+      }
+      .notice-toast.visible { display: block; }
+      .notice-toast.unlock { background: rgba(6, 78, 59, 0.92); border: 1px solid rgba(52, 211, 153, 0.6); color: #d1fae5; }
+      .notice-toast.warn { background: rgba(76, 5, 25, 0.92); border: 1px solid rgba(244, 63, 94, 0.6); color: #ffe4e6; }
+
+      .catch-toast {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        z-index: 20;
+        width: 310px;
+        border-radius: 12px;
+        background: rgba(13, 27, 42, 0.95);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(251, 191, 36, 0.65);
+        padding: 14px;
+        box-shadow: 0 18px 36px rgba(0, 0, 0, 0.5);
+        display: none;
+      }
+      .catch-toast.visible { display: block; }
+
+      .timing-overlay {
+        position: absolute;
+        left: 50%;
+        bottom: 16px;
+        transform: translateX(-50%);
+        width: min(540px, calc(100% - 28px));
+        z-index: 25;
+        display: none;
+      }
+      .timing-overlay.visible { display: block; }
+
+      .timing-card {
+        border-radius: 12px;
+        background: rgba(13, 27, 42, 0.96);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(100, 116, 139, 0.65);
+        padding: 16px 18px;
+        box-shadow: 0 20px 42px rgba(0, 0, 0, 0.6);
+        transition: border-color 0.15s ease;
+      }
+      .timing-card.flash-perfect { border-color: #fbbf24; }
+      .timing-card.flash-good { border-color: #34d399; }
+      .timing-card.flash-miss { border-color: #f43f5e; }
+
+      .timing-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      .timing-fish-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .thumb-box {
+        flex-shrink: 0;
+        border-radius: 8px;
+        background: rgba(9, 19, 29, 0.85);
+        border: 1px solid rgba(71, 85, 105, 0.6);
+        padding: 3px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .timing-meta {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+      }
+
+      .timing-name {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #f8fafc;
+        margin-top: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .penalty-banner {
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 6px 10px;
+        margin-bottom: 10px;
+        border-radius: 6px;
+        background: rgba(76, 5, 25, 0.65);
+        border: 1px solid rgba(244, 63, 94, 0.45);
+        font-size: 0.74rem;
+        color: #fecdd3;
+      }
+      .penalty-banner.visible { display: flex; }
+
+      .progress-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+
+      .progress-segments {
+        display: flex;
+        gap: 6px;
+        flex: 1;
+      }
+
+      .progress-seg {
+        height: 8px;
+        flex: 1;
+        border-radius: 3px;
+        background: #1e293b;
+        border: 1px solid #334155;
+      }
+      .progress-seg.filled { background: #34d399; border-color: #34d399; }
+
+      .timing-track {
+        position: relative;
+        height: 44px;
+        border-radius: 8px;
+        background: #0b1623;
+        border: 1px solid #334155;
+        overflow: hidden;
+        cursor: pointer;
+        margin-bottom: 14px;
+      }
+
+      .timing-zone {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        background: rgba(16, 185, 129, 0.35);
+        border-left: 1px solid rgba(52, 211, 153, 0.85);
+        border-right: 1px solid rgba(52, 211, 153, 0.85);
+      }
+
+      .timing-perfect-zone {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        background: rgba(251, 191, 36, 0.55);
+        border-left: 1px solid #fde047;
+        border-right: 1px solid #fde047;
+      }
+
+      .timing-needle-wrap {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        will-change: transform;
+      }
+
+      .timing-needle {
+        width: 5px;
+        height: 100%;
+        margin-left: -2.5px;
+        border-radius: 99px;
+        background: #ffffff;
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.9);
+      }
+
+      .timing-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .action-dock {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        border-radius: 12px;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-subtle);
+        padding: 14px 18px;
+      }
+
+      .dock-top {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .dock-bottom {
+        padding-top: 10px;
+        border-top: 1px solid rgba(148, 163, 184, 0.12);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 0.76rem;
+        color: #94a3b8;
+      }
+
+      .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .btn {
+        border: none;
+        border-radius: 8px;
+        padding: 10px 16px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.1s ease, background-color 0.15s ease, opacity 0.15s ease;
+        white-space: nowrap;
+      }
+      .btn:active:not(:disabled) { transform: scale(0.98); }
+      .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+      .btn-add { background: #38bdf8; color: #082f49; }
+      .btn-add:hover:not(:disabled) { background: #7dd3fc; }
+
+      .btn-sub { background: #1e293b; color: #e2e8f0; border: 1px solid #334155; padding: 9px 13px; }
+      .btn-sub:hover:not(:disabled) { background: #334155; }
+
+      .btn-auto-on { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(52, 211, 153, 0.6); padding: 9px 13px; }
+      .btn-auto-on:hover { background: rgba(16, 185, 129, 0.3); }
+
+      .btn-cast { background: #f43f5e; color: #ffffff; padding: 10px 20px; }
+      .btn-cast:hover:not(:disabled) { background: #fb7185; }
+
+      .btn-reel { background: #f59e0b; color: #0f172a; padding: 10px 20px; }
+
+      .btn-shop { background: #f59e0b; color: #0f172a; padding: 10px 16px; }
+      .btn-shop:hover { background: #fbbf24; }
+
+      .btn-strike { background: #f59e0b; color: #0f172a; padding: 10px 20px; }
+      .btn-strike:hover { background: #fbbf24; }
+
+      .stats-inline {
+        font-size: 0.85rem;
+        color: #cbd5e1;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .sidebar {
+        width: 336px;
+        flex-shrink: 0;
+        border-radius: 12px;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-subtle);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        max-height: 660px;
+      }
+
+      .tab-bar {
+        padding: 10px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+
+      .tab-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+        padding: 4px;
+        border-radius: 8px;
+        background: #09131d;
+      }
+
+      .tab-btn {
+        border: none;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        background: transparent;
+        color: #94a3b8;
+        cursor: pointer;
+      }
+      .tab-btn.active { background: #1e293b; color: #ffffff; }
+
+      .roster-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .roster-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 10px;
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.55);
+        border: 1px solid rgba(51, 65, 85, 0.45);
+      }
+
+      .roster-info { min-width: 0; flex: 1; }
+      .roster-name {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #f1f5f9;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .roster-meta { font-size: 0.72rem; color: #94a3b8; margin-top: 2px; }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background: rgba(2, 6, 23, 0.78);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+      }
+      .modal-backdrop.open { display: flex; }
+
+      .modal-box {
+        width: 100%;
+        max-width: 680px;
+        max-height: 84vh;
+        display: flex;
+        flex-direction: column;
+        border-radius: 12px;
+        background: var(--bg-panel);
+        border: 1px solid rgba(100, 116, 139, 0.45);
+        box-shadow: 0 24px 50px rgba(0, 0, 0, 0.65);
+        overflow: hidden;
+      }
+
+      .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 22px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+
+      .modal-body { padding: 20px 22px; overflow-y: auto; }
+
+      .close-btn {
+        background: none;
+        border: none;
+        color: #94a3b8;
+        font-size: 1.25rem;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 6px;
+      }
+      .close-btn:hover { background: #1e293b; color: #ffffff; }
+
+      .collection-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 12px;
+      }
+
+      .shop-card {
+        padding: 14px 16px;
+        border-radius: 10px;
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(51, 65, 85, 0.65);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+      }
+      .shop-card.equipped { border-color: rgba(251, 191, 36, 0.65); background: rgba(15, 23, 42, 0.92); }
+
+      /* Leaderboard Styles */
+      .rank-form {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+
+      .rank-input {
+        flex: 1;
+        padding: 10px 14px;
+        border-radius: 8px;
+        border: 1px solid #334155;
+        background: #09131d;
+        color: #f8fafc;
+        font-size: 0.875rem;
+        outline: none;
+      }
+
+      .rank-input:focus { border-color: #38bdf8; }
+
+      .rank-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.65);
+        border: 1px solid rgba(51, 65, 85, 0.45);
+        margin-bottom: 8px;
+      }
+
+      .rank-row.me {
+        border-color: rgba(56, 189, 248, 0.7);
+        background: rgba(56, 189, 248, 0.12);
+      }
+
+      .rank-badge {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 0.82rem;
+        margin-right: 12px;
+        background: #1e293b;
+        color: #cbd5e1;
+      }
+
+      .rank-1 { background: rgba(251, 191, 36, 0.22); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.5); }
+      .rank-2 { background: rgba(226, 232, 240, 0.2); color: #e2e8f0; border: 1px solid rgba(226, 232, 240, 0.45); }
+      .rank-3 { background: rgba(217, 119, 6, 0.22); color: #f59e0b; border: 1px solid rgba(217, 119, 6, 0.5); }
+
+      .grade-common { color: #cbd5e1; }
+      .grade-rare { color: #38bdf8; }
+      .grade-epic { color: #a78bfa; }
+      .grade-legendary { color: #fbbf24; }
+      .grade-mythic { color: #fda4af; }
+
+      @media (max-width: 980px) {
+        main { flex-direction: column; }
+        .sidebar { width: 100%; max-height: 360px; }
+        .tank-wrapper { height: 440px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="header-inner">
+        <div class="brand">물멍 수조 낚시</div>
+        <nav class="nav-links">
+          <button type="button" class="nav-link nav-link-rank" id="openRankBtn">🏆 랭킹</button>
+          <button type="button" class="nav-link" id="openShopNavBtn">낚시대 상점</button>
+          <button type="button" class="nav-link" id="openCollectionBtn">어획 도감</button>
+          <button type="button" class="nav-link" id="openGuideBtn">게임 방법</button>
+          <button type="button" class="nav-link" id="clearTankBtn">수조 비우기</button>
+        </nav>
+        <button type="button" class="btn-mute" id="muteBtn">소리 끄기</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="stage-col">
+        <div class="tank-wrapper" id="tankWrapper">
+          <canvas id="tankCanvas"></canvas>
+
+          <div class="empty-hint" id="emptyHint" style="display: none;">
+            <div class="empty-hint-box">수조가 비어 있습니다. 아래 <strong>물고기 추가</strong> 버튼을 눌러보세요.</div>
+          </div>
+
+          <div class="notice-toast" id="noticeToast"></div>
+
+          <div class="catch-toast" id="catchToast">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;">
+              <div>
+                <div style="font-size:0.75rem;font-weight:700;color:#fbbf24;">낚시 성공!</div>
+                <div id="toastFishName" style="font-size:1rem;font-weight:700;color:#fff;"></div>
+              </div>
+              <button type="button" class="close-btn" id="closeToastBtn" aria-label="닫기">×</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div class="thumb-box"><canvas id="toastThumb" width="68" height="42"></canvas></div>
+              <div style="font-size:0.78rem;color:#cbd5e1;line-height:1.6;">
+                <div id="toastMeta"></div>
+                <div id="toastScore" class="mono-num" style="font-weight:700;color:#34d399;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="timing-overlay" id="timingOverlay">
+            <div class="timing-card" id="timingCard">
+              <div class="timing-header">
+                <div class="timing-fish-info">
+                  <div class="thumb-box"><canvas id="timingThumb" width="60" height="36"></canvas></div>
+                  <div style="min-width:0;">
+                    <div class="timing-meta" id="timingMeta"></div>
+                    <div class="timing-name" id="timingFishName"></div>
+                  </div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                  <div style="font-size:0.72rem;color:#94a3b8;">남은 기회</div>
+                  <div class="mono-num" id="timingChances" style="font-size:0.9rem;font-weight:700;">3 / 3</div>
+                </div>
+              </div>
+
+              <div class="penalty-banner" id="penaltyBanner">
+                <span id="penaltyBannerLeft">낚시대 등급 부족 페널티 적용</span>
+                <span class="mono-num" style="color:#fda4af;">바늘 가속 · 기회 2회 · 횟수 증가</span>
+              </div>
+
+              <div class="progress-row">
+                <div class="progress-segments" id="progressSegments"></div>
+                <div class="mono-num" id="progressLabel" style="font-size:0.75rem;font-weight:700;color:#cbd5e1;">성공 0 / 1</div>
+              </div>
+
+              <div class="timing-track" id="timingTrack" role="button" tabindex="0" aria-label="타이밍 바">
+                <div class="timing-zone" id="timingZone"></div>
+                <div class="timing-perfect-zone" id="timingPerfectZone"></div>
+                <div class="timing-needle-wrap" id="timingNeedleWrap">
+                  <div class="timing-needle"></div>
+                </div>
+              </div>
+
+              <div class="timing-actions">
+                <div id="timingFeedback" style="font-size:0.78rem;color:#cbd5e1;">
+                  초록 구간에 바늘이 올 때 스페이스바 또는 당기기를 누르세요.
+                </div>
+                <button type="button" class="btn btn-strike" id="strikeBtn">당기기! (Space)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-dock">
+          <div class="dock-top">
+            <div class="btn-group">
+              <button type="button" class="btn btn-add mono-num" id="addOneBtn">+ 물고기 추가</button>
+              <button type="button" class="btn btn-sub mono-num" id="autoAddBtn">자동</button>
+              <button type="button" class="btn btn-sub mono-num" id="addThreeBtn">+3마리</button>
+              <button type="button" class="btn btn-cast" id="castBtn">찌 던지기</button>
+              <button type="button" class="btn btn-shop" id="openShopBtn">상점</button>
+            </div>
+            <div class="stats-inline">
+              <span>수조 <strong class="mono-num" id="statTankCount">0</strong>/30마리</span>
+              <span style="color:#475569;">·</span>
+              <span>어획 <strong class="mono-num" id="statCaughtCount">0</strong>마리</span>
+              <span style="color:#475569;">·</span>
+              <span>보유 <strong class="mono-num" id="statAvailableScore" style="color:#fbbf24;">0점</strong></span>
+            </div>
+          </div>
+          <div class="dock-bottom">
+            <div id="rodStatusLine"></div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span id="unlockStatusLine"></span>
+              <span style="color:#475569;">·</span>
+              <button type="button" id="quickShopLink" style="background:none;border:none;color:#fcd34d;text-decoration:underline;text-underline-offset:4px;cursor:pointer;font-size:0.76rem;padding:0;">낚시대 변경 및 구매</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="sidebar">
+        <div class="tab-bar">
+          <div class="tab-grid">
+            <button type="button" class="tab-btn active" id="tabTankBtn">수조 현황 (0)</button>
+            <button type="button" class="tab-btn" id="tabCaughtBtn">최근 어획 (0)</button>
+          </div>
+        </div>
+        <div class="roster-list" id="rosterList"></div>
+      </aside>
+    </main>
+
+    <!-- Leaderboard Modal -->
+    <div class="modal-backdrop" id="rankModal">
+      <div class="modal-box" style="max-width:540px;">
+        <div class="modal-header">
+          <div>
+            <div style="font-size:1.1rem;font-weight:700;">🏆 명예의 전당 (대물 랭킹)</div>
+            <div id="rankMySummary" style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">닉네임을 등록하면 최고 기록이 자동 반영됩니다.</div>
+          </div>
+          <button type="button" class="close-btn" id="closeRankBtn">×</button>
+        </div>
+        <div class="modal-body">
+          <form class="rank-form" id="rankForm">
+            <input type="text" class="rank-input" id="nicknameInput" maxlength="12" placeholder="닉네임 입력 (최대 12자)" required />
+            <button type="submit" class="btn btn-add" id="saveRankBtn">등록/갱신</button>
+          </form>
+          <div id="rankStatus" style="font-size:0.75rem;color:#38bdf8;margin-bottom:10px;display:none;"></div>
+          <div id="rankList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shop Modal -->
+    <div class="modal-backdrop" id="shopModal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <div>
+            <div style="font-size:1.1rem;font-weight:700;">낚시대 상점</div>
+            <div style="font-size:0.78rem;color:#94a3b8;margin-top:2px;">
+              보유 점수 <strong class="mono-num" id="shopScoreLabel" style="color:#fbbf24;">0점</strong>
+            </div>
+          </div>
+          <button type="button" class="close-btn" id="closeShopBtn">×</button>
+        </div>
+        <div class="modal-body" id="shopBody"></div>
+        <div style="padding:12px 22px;border-top:1px solid rgba(148,163,184,0.16);background:rgba(2,6,23,0.45);font-size:0.75rem;color:#94a3b8;">
+          물고기 등급보다 낮은 낚시대를 사용하면 타이밍 바 속도가 빨라지고, 성공 필요 횟수가 늘어나며, 2회 실패 시 물고기가 도망갑니다.
+        </div>
+      </div>
+    </div>
+
+    <!-- Collection Modal -->
+    <div class="modal-backdrop" id="collectionModal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <div>
+            <div style="font-size:1.1rem;font-weight:700;">어획 도감</div>
+            <div id="collectionSummary" style="font-size:0.78rem;color:#94a3b8;margin-top:2px;"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button type="button" class="btn btn-sub" id="clearHistoryBtn" style="padding:6px 12px;font-size:0.75rem;color:#fda4af;">기록 비우기</button>
+            <button type="button" class="close-btn" id="closeCollectionBtn">×</button>
+          </div>
+        </div>
+        <div class="modal-body" id="collectionBody"></div>
+      </div>
+    </div>
+
+    <!-- Guide Modal -->
+    <div class="modal-backdrop" id="guideModal">
+      <div class="modal-box" style="max-width:560px;">
+        <div class="modal-header">
+          <div style="font-size:1.1rem;font-weight:700;">게임 방법</div>
+          <button type="button" class="close-btn" id="closeGuideBtn">×</button>
+        </div>
+        <div class="modal-body" style="font-size:0.875rem;color:#cbd5e1;line-height:1.65;">
+          <p style="margin-top:0;"><strong>1. 물고기 추가 &amp; 찌 던지기</strong><br/><strong>+ 물고기 추가</strong>(10초 쿨타임), <strong>자동</strong>(10초마다 추가), <strong>+3마리</strong>(50초 쿨타임) 버튼으로 10종 체형의 물고기를 수조에 넣고 <strong>찌 던지기</strong>로 바늘을 내려보세요.</p>
+          <p><strong>2. 낚시대 등급과 상점</strong><br/>처음에는 <strong>일반 등급 기본 낚시대(무제한)</strong>를 장착하고 시작합니다. 물고기 등급보다 낮은 낚시대를 사용하면 <strong>바늘 속도 증가 · 성공 횟수 증가 · 2회 실패 시 도망</strong> 페널티가 적용됩니다. 점수를 모아 상점에서 더 높은 등급의 낚시대를 구매하세요.</p>
+          <p><strong>3. 등급 해금 &amp; 신화 등급</strong><br/>처음에는 <strong>일반 등급</strong>만 등장하며, <strong>이전 등급 물고기를 3마리</strong> 잡을 때마다 다음 등급(희귀 → 영웅 → 전설 → 신화)이 해금됩니다. 최고 등급인 <strong>신화 등급</strong>은 등장 후 <strong>22초</strong>가 지나면 사라집니다.</p>
+          <div style="border-top:1px solid rgba(148,163,184,0.16);padding-top:12px;margin-top:12px;">
+            <div style="font-weight:700;margin-bottom:8px;color:#fff;">등급별 기본 성공 횟수 및 전체 해금 시 확률</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.8rem;">
+              <div style="padding:8px 12px;border-radius:8px;background:#09131d;display:flex;justify-content:space-between;"><span class="grade-common" style="font-weight:700;">일반 (49%)</span><span class="mono-num">1회 · 100점</span></div>
+              <div style="padding:8px 12px;border-radius:8px;background:#09131d;display:flex;justify-content:space-between;"><span class="grade-rare" style="font-weight:700;">희귀 (29%)</span><span class="mono-num">2회 · 260점</span></div>
+              <div style="padding:8px 12px;border-radius:8px;background:#09131d;display:flex;justify-content:space-between;"><span class="grade-epic" style="font-weight:700;">영웅 (16%)</span><span class="mono-num">3회 · 550점</span></div>
+              <div style="padding:8px 12px;border-radius:8px;background:#09131d;display:flex;justify-content:space-between;"><span class="grade-legendary" style="font-weight:700;">전설 (5%)</span><span class="mono-num">4회 · 1,200점</span></div>
+              <div style="padding:8px 12px;border-radius:8px;background:#09131d;display:flex;justify-content:space-between;"><span class="grade-mythic" style="font-weight:700;">신화 (1%)</span><span class="mono-num">5회 · 3,000점 · 22s</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        // ==========================================
+        // [필수 수정] 본인의 Supabase 프로젝트 정보 입력
+        // ==========================================
+        const SUPABASE_URL = 'https://pjmxpvocbcdhibitjvya.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_zXc284KqXxy-RS6cuntnEw_RxUdkVj4';
+        // ==========================================
+
+        const db = (window.supabase && SUPABASE_URL.startsWith('https://'))
+          ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+          : null;
+
+        const STORAGE_KEY = 'aqua_tank_angler_records_v1';
+        const SHOP_STORAGE_KEY = 'aqua_tank_angler_shop_v1';
+        const NICKNAME_KEY = 'aqua_tank_nickname_v1';
+        const MAX_TANK_FISH = 30;
+        const ADD_ONE_COOLDOWN_MS = 10000;
+        const ADD_THREE_COOLDOWN_MS = 50000;
+        const MYTHIC_LIFETIME_MS = 22000;
+        const REQUIRED_CATCHES_FOR_NEXT_GRADE = 3;
+        const GRADE_ORDER = ['common', 'rare', 'epic', 'legendary', 'mythic'];
+        const GRADE_RANK = { common: 0, rare: 1, epic: 2, legendary: 3, mythic: 4 };
+
+        const GRADE_CONFIG = {
+          common:    { label: '일반', requiredHits: 1, basePoints: 100,  zoneWidth: 0.28,  perfectWidth: 0.08,  needleSpeed: 0.72, accentHex: '#94A3B8', weight: 49 },
+          rare:      { label: '희귀', requiredHits: 2, basePoints: 260,  zoneWidth: 0.22,  perfectWidth: 0.065, needleSpeed: 0.92, accentHex: '#38BDF8', weight: 29 },
+          epic:      { label: '영웅', requiredHits: 3, basePoints: 550,  zoneWidth: 0.17,  perfectWidth: 0.05,  needleSpeed: 1.12, accentHex: '#A78BFA', weight: 16 },
+          legendary: { label: '전설', requiredHits: 4, basePoints: 1200, zoneWidth: 0.135, perfectWidth: 0.04,  needleSpeed: 1.32, accentHex: '#FBBF24', weight: 5 },
+          mythic:    { label: '신화', requiredHits: 5, basePoints: 3000, zoneWidth: 0.115, perfectWidth: 0.032, needleSpeed: 1.48, accentHex: '#FB7185', weight: 1 },
+        };
+
+        const FISHING_RODS = [
+          { id: 'rod_common',    name: '대나무 기본 낚시대', grade: 'common',    price: 0,    maxUses: null, description: '처음 지급되는 기본 낚시대입니다. 내구도 제한 없이 언제든 사용할 수 있습니다.' },
+          { id: 'rod_rare',      name: '카본 스피닝 낚시대', grade: 'rare',      price: 350,  maxUses: 12,   description: '희귀 등급 이하 물고기를 페널티 없이 안정적으로 낚을 수 있습니다.' },
+          { id: 'rod_epic',      name: '티타늄 프로 낚시대', grade: 'epic',      price: 900,  maxUses: 18,   description: '영웅 등급까지 거뜬히 버티는 고강도 낚시대입니다.' },
+          { id: 'rod_legendary', name: '황금 마스터 낚시대', grade: 'legendary', price: 2200, maxUses: 25,   description: '전설 등급 물고기의 강한 저항도 안정적으로 제압합니다.' },
+          { id: 'rod_mythic',    name: '심연의 성좌 낚시대', grade: 'mythic',    price: 4800, maxUses: 35,   description: '신화 등급을 포함한 모든 어종을 페널티 없이 낚아 올리는 최고급 낚시대입니다.' },
+        ];
+
+        const SHAPE_SPECIES = {
+          minnow:    ['송사리', '네온테트라', '은빛 피라미', '구피', '카디널 테트라'],
+          goldfish:  ['금붕어', '난주', '유금', '진주린', '오란다'],
+          angelfish: ['엔젤피쉬', '디스커스', '나비고기', '깃대돔', '블루탱'],
+          eel:       ['리본장어', '실버 아로와나', '물뱀장어', '심해갈치', '용치놀래기'],
+          betta:     ['크라운 베타', '하프문 베타', '왕관 열대어', '유령지느러미', '플라캇 베타'],
+          puffer:    ['복어', '가시복', '초롱복어', '달빛복어', '별복어'],
+          ray:       ['만타가오리', '노랑가오리', '별빛가오리', '매가오리'],
+          shark:     ['아기상어', '백상아리', '귀상어', '청상아리', '고래상어'],
+          koi:       ['비단잉어', '홍백잉어', '대정삼색', '황금잉어'],
+          sunfish:   ['개복치', '쏠배감펭', '초롱아귀', '심해달고기'],
+        };
+
+        const COLOR_PALETTES = [
+          { name: '산호빛', palette: { bodyPrimary: '#FB7185', bodySecondary: '#FDE047', finColor: '#FDA4AF', accentColor: '#FFF1F2' } },
+          { name: '바다빛', palette: { bodyPrimary: '#38BDF8', bodySecondary: '#1E3A8A', finColor: '#7DD3FC', accentColor: '#E0F2FE' } },
+          { name: '노을빛', palette: { bodyPrimary: '#F97316', bodySecondary: '#FACC15', finColor: '#FDBA74', accentColor: '#FEF3C7' } },
+          { name: '비취빛', palette: { bodyPrimary: '#2DD4BF', bodySecondary: '#0F766E', finColor: '#99F6E4', accentColor: '#CCFBF1' } },
+          { name: '자수정', palette: { bodyPrimary: '#A78BFA', bodySecondary: '#4C1D95', finColor: '#DDD6FE', accentColor: '#F5F3FF' } },
+          { name: '진홍빛', palette: { bodyPrimary: '#EF4444', bodySecondary: '#991B1B', finColor: '#FCA5A5', accentColor: '#FEE2E2' } },
+          { name: '백금빛', palette: { bodyPrimary: '#E2E8F0', bodySecondary: '#64748B', finColor: '#CBD5E1', accentColor: '#FFFFFF' } },
+          { name: '라임빛', palette: { bodyPrimary: '#A3E635', bodySecondary: '#3F6212', finColor: '#D9F99D', accentColor: '#ECFCCB' } },
+          { name: '청록빛', palette: { bodyPrimary: '#06B6D4', bodySecondary: '#164E63', finColor: '#67E8F9', accentColor: '#ECFEFF' } },
+          { name: '자몽빛', palette: { bodyPrimary: '#F43F5E', bodySecondary: '#FB923C', finColor: '#FECDD3', accentColor: '#FFF7ED' } },
+          { name: '남빛',   palette: { bodyPrimary: '#6366F1', bodySecondary: '#1E1B4B', finColor: '#A5B4FC', accentColor: '#EEF2FF' } },
+          { name: '연옥빛', palette: { bodyPrimary: '#34D399', bodySecondary: '#065F46', finColor: '#A7F3D0', accentColor: '#ECFDF5' } },
+        ];
+
+        const LEGENDARY_PALETTES = [
+          { name: '황금 제왕',   palette: { bodyPrimary: '#FBBF24', bodySecondary: '#B45309', finColor: '#FDE68A', accentColor: '#FFFBEB' } },
+          { name: '무지개 신비', palette: { bodyPrimary: '#F472B6', bodySecondary: '#38BDF8', finColor: '#FDE047', accentColor: '#FFFFFF' } },
+          { name: '심해 흑진주', palette: { bodyPrimary: '#312E81', bodySecondary: '#0F172A', finColor: '#38BDF8', accentColor: '#FDE047' } },
+        ];
+
+        const MYTHIC_PALETTES = [
+          { name: '태양홍염',    palette: { bodyPrimary: '#F43F5E', bodySecondary: '#FB923C', finColor: '#FDE047', accentColor: '#FFFFFF' } },
+          { name: '심연 오로라', palette: { bodyPrimary: '#22D3EE', bodySecondary: '#A855F7', finColor: '#F472B6', accentColor: '#ECFEFF' } },
+          { name: '성좌 에테르', palette: { bodyPrimary: '#E879F9', bodySecondary: '#1E1B4B', finColor: '#38BDF8', accentColor: '#FEF08A' } },
+        ];
+
+        const PATTERN_LABELS = { solid: '', striped: '줄무늬', spotted: '점박이', gradient: '그라데이션', bicolor: '투톤', marbled: '얼룩무늬' };
+        const SEAWEEDS = [
+          { xRatio: 0.06, height: 120, segments: 6, phase: 0.2, hue: 156 },
+          { xRatio: 0.09, height: 88,  segments: 5, phase: 1.4, hue: 162 },
+          { xRatio: 0.22, height: 72,  segments: 4, phase: 2.3, hue: 148 },
+          { xRatio: 0.74, height: 95,  segments: 5, phase: 0.8, hue: 160 },
+          { xRatio: 0.88, height: 132, segments: 6, phase: 2.8, hue: 152 },
+          { xRatio: 0.92, height: 84,  segments: 4, phase: 1.1, hue: 168 },
+        ];
+        const PEBBLES = [
+          { xRatio: 0.08, rx: 22, ry: 9,  color: '#334155' },
+          { xRatio: 0.14, rx: 14, ry: 7,  color: '#475569' },
+          { xRatio: 0.28, rx: 19, ry: 8,  color: '#1E293B' },
+          { xRatio: 0.44, rx: 26, ry: 10, color: '#334155' },
+          { xRatio: 0.58, rx: 16, ry: 7,  color: '#475569' },
+          { xRatio: 0.72, rx: 24, ry: 9,  color: '#1E293B' },
+          { xRatio: 0.85, rx: 18, ry: 8,  color: '#334155' },
+        ];
+
+        const sound = {
+          ctx: null,
+          muted: false,
+          ensure() {
+            if (this.muted) return null;
+            if (!this.ctx) {
+              const AC = window.AudioContext || window.webkitAudioContext;
+              if (!AC) return null;
+              this.ctx = new AC();
+            }
+            if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+            return this.ctx;
+          },
+          splash() {
+            const ctx = this.ensure(); if (!ctx) return;
+            const now = ctx.currentTime, osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(520, now);
+            osc.frequency.exponentialRampToValueAtTime(190, now + 0.12);
+            osc.frequency.exponentialRampToValueAtTime(640, now + 0.22);
+            g.gain.setValueAtTime(0.001, now);
+            g.gain.linearRampToValueAtTime(0.14, now + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+            osc.connect(g); g.connect(ctx.destination);
+            osc.start(now); osc.stop(now + 0.25);
+          },
+          cast() {
+            const ctx = this.ensure(); if (!ctx) return;
+            const now = ctx.currentTime, osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(340, now);
+            osc.frequency.exponentialRampToValueAtTime(150, now + 0.18);
+            g.gain.setValueAtTime(0.12, now);
+            g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+            osc.connect(g); g.connect(ctx.destination);
+            osc.start(now); osc.stop(now + 0.21);
+          },
+          bite() {
+            const ctx = this.ensure(); if (!ctx) return;
+            const now = ctx.currentTime;
+            [660, 880].forEach((freq, i) => {
+              const osc = ctx.createOscillator(), g = ctx.createGain();
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(freq, now + i * 0.07);
+              g.gain.setValueAtTime(0.001, now + i * 0.07);
+              g.gain.linearRampToValueAtTime(0.16, now + i * 0.07 + 0.015);
+              g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.16);
+              osc.connect(g); g.connect(ctx.destination);
+              osc.start(now + i * 0.07); osc.stop(now + i * 0.07 + 0.17);
+            });
+          },
+          hit(perfect) {
+            const ctx = this.ensure(); if (!ctx) return;
+            const now = ctx.currentTime;
+            (perfect ? [784, 987.77, 1174.66] : [587.33, 783.99]).forEach((freq, i) => {
+              const osc = ctx.createOscillator(), g = ctx.createGain();
+              osc.type = perfect ? 'triangle' : 'sine';
+              osc.frequency.setValueAtTime(freq, now + i * 0.04);
+              g.gain.setValueAtTime(0.001, now + i * 0.04);
+              g.gain.linearRampToValueAtTime(0.14, now + i * 0.04 + 0.01);
+              g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.04 + 0.18);
+              osc.connect(g); g.connect(ctx.destination);
+              osc.start(now + i * 0.04); osc.stop(now + i * 0.04 + 0.2);
+            });
+          },
+          miss() {
+            const ctx = this.ensure(); if (!ctx) return;
+            const now = ctx.currentTime, osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(190, now);
+            osc.frequency.exponentialRampToValueAtTime(95, now + 0.18);
+            g.gain.setValueAtTime(0.08, now);
+            g.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+            osc.connect(g); g.connect(ctx.destination);
+            osc.start(now); osc.stop(now + 0.21);
+          },
+          success() {
+            const ctx = this.ensure(); if (!ctx) return;
+            const now = ctx.currentTime;
+            [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+              const osc = ctx.createOscillator(), g = ctx.createGain();
+              osc.type = 'triangle';
+              osc.frequency.setValueAtTime(freq, now + i * 0.065);
+              g.gain.setValueAtTime(0.001, now + i * 0.065);
+              g.gain.linearRampToValueAtTime(0.15, now + i * 0.065 + 0.02);
+              g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.065 + 0.4);
+              osc.connect(g); g.connect(ctx.destination);
+              osc.start(now + i * 0.065); osc.stop(now + i * 0.065 + 0.42);
+            });
+          }
+        };
+
+        const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+        const getRodById = (id) => FISHING_RODS.find((r) => r.id === id) || FISHING_RODS[0];
+
+        function getGradeCatchCounts(records) {
+          const counts = { common: 0, rare: 0, epic: 0, legendary: 0, mythic: 0 };
+          records.forEach((r) => { if (counts[r.fish.grade] !== undefined) counts[r.fish.grade] += 1; });
+          return counts;
+        }
+
+        function getUnlockedGrades(records) {
+          const counts = getGradeCatchCounts(records);
+          const unlocked = ['common'];
+          for (let i = 1; i < GRADE_ORDER.length; i++) {
+            const prev = GRADE_ORDER[i - 1];
+            if (counts[prev] >= REQUIRED_CATCHES_FOR_NEXT_GRADE) unlocked.push(GRADE_ORDER[i]);
+            else break;
+          }
+          return unlocked;
+        }
+
+        function getNextUnlockInfo(records) {
+          const counts = getGradeCatchCounts(records);
+          const unlocked = getUnlockedGrades(records);
+          if (unlocked.length >= GRADE_ORDER.length) return null;
+          const nextGrade = GRADE_ORDER[unlocked.length];
+          const prevGrade = GRADE_ORDER[unlocked.length - 1];
+          return {
+            nextGrade,
+            prevGrade,
+            currentCount: Math.min(REQUIRED_CATCHES_FOR_NEXT_GRADE, counts[prevGrade]),
+            requiredCount: REQUIRED_CATCHES_FOR_NEXT_GRADE,
+          };
+        }
+
+        function getChallengeModifiers(rodGrade, fishGrade) {
+          const gap = Math.max(0, GRADE_RANK[fishGrade] - GRADE_RANK[rodGrade]);
+          const isUnderGeared = gap > 0;
+          return {
+            isUnderGeared,
+            extraHits: isUnderGeared ? Math.min(2, gap) : 0,
+            speedMultiplier: isUnderGeared ? 1.38 + (gap - 1) * 0.14 : 1,
+            maxMisses: isUnderGeared ? 2 : 3,
+          };
+        }
+
+        function rollFishGrade(allowedGrades) {
+          const set = allowedGrades && allowedGrades.length > 0 ? new Set(allowedGrades) : null;
+          const entries = Object.entries(GRADE_CONFIG).filter(([g]) => !set || set.has(g));
+          const total = entries.reduce((s, [, c]) => s + c.weight, 0);
+          let r = Math.random() * total;
+          for (const [g, c] of entries) {
+            r -= c.weight;
+            if (r <= 0) return g;
+          }
+          return entries[0]?.[0] || 'common';
+        }
+
+        function createRandomFish(tankW, tankH, forcedGrade, fromTop, allowedGrades) {
+          const grade = forcedGrade || rollFishGrade(allowedGrades);
+          const cfg = GRADE_CONFIG[grade];
+          const shape = pick(['minnow', 'goldfish', 'angelfish', 'eel', 'betta', 'puffer', 'ray', 'shark', 'koi', 'sunfish']);
+          const pattern = pick(['solid', 'striped', 'spotted', 'gradient', 'bicolor', 'marbled']);
+          const colorPick = grade === 'mythic' ? pick(MYTHIC_PALETTES) : grade === 'legendary' ? pick(LEGENDARY_PALETTES) : pick(COLOR_PALETTES);
+          const species = pick(SHAPE_SPECIES[shape]);
+          const prefix = PATTERN_LABELS[pattern];
+          const name = prefix ? `${colorPick.name} ${prefix} ${species}` : `${colorPick.name} ${species}`;
+
+          const mult = grade === 'mythic' ? 1.5 : grade === 'legendary' ? 1.35 : grade === 'epic' ? 1.2 : grade === 'rare' ? 1.08 : 0.96;
+          const dims = {
+            minnow: [20, 9, 11], goldfish: [23, 15, 16], angelfish: [21, 20, 19], eel: [34, 9, 38], betta: [24, 14, 17],
+            puffer: [21, 18, 15], ray: [29, 18, 46], shark: [33, 13, 62], koi: [28, 13, 32], sunfish: [23, 22, 44],
+          }[shape];
+          const scale = 0.9 + Math.random() * 0.28;
+          const radiusX = Math.round(dims[0] * mult * scale);
+          const radiusY = Math.round(dims[1] * mult * scale);
+          const lengthCm = Math.round(dims[2] * mult * scale * 10) / 10;
+
+          const waterTop = Math.max(70, tankH * 0.16);
+          const waterBottom = Math.max(waterTop + 120, tankH - 54);
+          const facing = Math.random() > 0.5 ? 1 : -1;
+          const baseSpeed = (grade === 'mythic' ? 116 : grade === 'legendary' ? 95 : grade === 'epic' ? 82 : grade === 'rare' ? 68 : 54) + Math.random() * 24;
+
+          return {
+            id: `fish_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+            name, grade, shape, pattern, palette: { ...colorPick.palette },
+            lengthCm, points: Math.round(cfg.basePoints * (0.9 + scale * 0.2)), requiredHits: cfg.requiredHits,
+            x: 60 + Math.random() * Math.max(120, tankW - 120),
+            y: fromTop ? waterTop + 18 : waterTop + 30 + Math.random() * Math.max(60, waterBottom - waterTop - 60),
+            vx: facing * baseSpeed, vy: fromTop ? 75 : (Math.random() - 0.5) * 18, baseSpeed,
+            radiusX, radiusY, facing, swimPhase: Math.random() * Math.PI * 2, preferredDepthRatio: 0.2 + Math.random() * 0.65, spookedUntil: 0,
+            ...(grade === 'mythic' ? { expiresAt: performance.now() + MYTHIC_LIFETIME_MS, maxLifetimeMs: MYTHIC_LIFETIME_MS } : {}),
+          };
+        }
+
+        function drawFish(ctx, fish, opts) {
+          const { x, y, scale = 1, facing = fish.facing, phase = fish.swimPhase, isHooked = false, time = 0, showTimer = false, nowMs = 0 } = opts;
+          const rx = fish.radiusX * scale, ry = fish.radiusY * scale;
+          const wag = Math.sin(phase) * (isHooked ? 0.35 : 0.22);
+          const finWag = Math.cos(phase * 1.1) * 0.16;
+
+          ctx.save();
+          ctx.translate(x, y);
+
+          if (showTimer && fish.grade === 'mythic' && fish.expiresAt && fish.maxLifetimeMs && !isHooked) {
+            const rem = Math.max(0, fish.expiresAt - nowMs);
+            const ratio = Math.min(1, rem / fish.maxLifetimeMs);
+            const sec = Math.ceil(rem / 1000);
+            const barW = Math.max(46, rx * 1.3), barY = -ry * 1.55 - 12;
+            ctx.save();
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+            ctx.fillRect(-barW / 2, barY, barW, 5);
+            ctx.fillStyle = ratio < 0.3 ? '#F43F5E' : '#FB7185';
+            ctx.fillRect(-barW / 2, barY, barW * ratio, 5);
+            ctx.font = '700 11px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#FFE4E6';
+            ctx.fillText(`신화 ${sec}s`, 0, barY - 4);
+            ctx.restore();
+          }
+
+          ctx.scale(facing, 1);
+          ctx.rotate(isHooked ? -0.22 + Math.sin(time * 16) * 0.08 : Math.sin(phase * 0.5) * 0.035);
+
+          if (fish.grade === 'mythic' || fish.grade === 'legendary' || fish.grade === 'epic') {
+            const gR = Math.max(rx, ry) * (fish.grade === 'mythic' ? 1.85 : 1.55);
+            const aura = ctx.createRadialGradient(0, 0, rx * 0.25, 0, 0, gR);
+            if (fish.grade === 'mythic') {
+              aura.addColorStop(0, `rgba(251,113,133,${0.24 + Math.sin(time * 6) * 0.08})`);
+              aura.addColorStop(0.55, 'rgba(56,189,248,0.14)');
+              aura.addColorStop(1, 'rgba(0,0,0,0)');
+            } else if (fish.grade === 'legendary') {
+              aura.addColorStop(0, 'rgba(251,191,36,0.24)');
+              aura.addColorStop(1, 'rgba(0,0,0,0)');
+            } else {
+              aura.addColorStop(0, 'rgba(167,139,250,0.18)');
+              aura.addColorStop(1, 'rgba(0,0,0,0)');
+            }
+            ctx.fillStyle = aura; ctx.beginPath(); ctx.arc(0, 0, gR, 0, Math.PI * 2); ctx.fill();
+            if (fish.grade === 'mythic') {
+              for (let i = 0; i < 4; i++) {
+                const ang = time * 2.8 + (i * Math.PI) / 2;
+                ctx.fillStyle = i % 2 === 0 ? '#FEF08A' : '#67E8F9';
+                ctx.beginPath(); ctx.arc(Math.cos(ang) * rx * 1.15, Math.sin(ang) * ry * 1.15, Math.max(1.5, 2.2 * scale), 0, Math.PI * 2); ctx.fill();
+              }
+            }
+          }
+
+          // Tail
+          ctx.save(); ctx.translate(-rx * 0.82, 0); ctx.rotate(wag);
+          ctx.fillStyle = fish.palette.finColor; ctx.globalAlpha = 0.88; ctx.beginPath();
+          if (fish.shape === 'betta') {
+            ctx.moveTo(0, -ry * 0.35); ctx.quadraticCurveTo(-rx * 0.9, -ry * 1.35, -rx * 1.15, -ry * 0.55);
+            ctx.quadraticCurveTo(-rx * 0.9, 0, -rx * 1.2, ry * 0.55); ctx.quadraticCurveTo(-rx * 0.85, ry * 1.35, 0, ry * 0.35);
+          } else if (fish.shape === 'goldfish' || fish.shape === 'koi') {
+            ctx.moveTo(0, 0); ctx.quadraticCurveTo(-rx * 0.72, -ry * 1.15, -rx * 0.82, -ry * 0.22);
+            ctx.quadraticCurveTo(-rx * 0.42, 0, -rx * 0.82, ry * 0.22); ctx.quadraticCurveTo(-rx * 0.72, ry * 1.15, 0, 0);
+          } else if (fish.shape === 'eel') {
+            ctx.moveTo(0, -ry * 0.4); ctx.quadraticCurveTo(-rx * 0.55, -ry * 0.5, -rx * 0.75, 0); ctx.quadraticCurveTo(-rx * 0.55, ry * 0.5, 0, ry * 0.4);
+          } else if (fish.shape === 'ray') {
+            ctx.moveTo(rx * 0.1, -ry * 0.12); ctx.quadraticCurveTo(-rx * 0.5, -ry * 0.08, -rx * 0.95, ry * 0.08); ctx.quadraticCurveTo(-rx * 0.5, ry * 0.14, rx * 0.1, ry * 0.12);
+          } else if (fish.shape === 'shark') {
+            ctx.moveTo(0, -ry * 0.22); ctx.lineTo(-rx * 0.62, -ry * 1.25); ctx.quadraticCurveTo(-rx * 0.32, -ry * 0.1, -rx * 0.28, 0);
+            ctx.quadraticCurveTo(-rx * 0.32, ry * 0.15, -rx * 0.48, ry * 0.88); ctx.lineTo(0, ry * 0.22);
+          } else if (fish.shape === 'sunfish') {
+            ctx.moveTo(0, -ry * 0.5); ctx.quadraticCurveTo(-rx * 0.45, -ry * 0.35, -rx * 0.3, 0); ctx.quadraticCurveTo(-rx * 0.45, ry * 0.35, 0, ry * 0.5);
+          } else if (fish.shape === 'puffer') {
+            ctx.moveTo(0, -ry * 0.25); ctx.lineTo(-rx * 0.48, -ry * 0.55); ctx.quadraticCurveTo(-rx * 0.35, 0, -rx * 0.48, ry * 0.55); ctx.lineTo(0, ry * 0.25);
+          } else {
+            ctx.moveTo(0, -ry * 0.25); ctx.lineTo(-rx * 0.65, -ry * 0.85); ctx.lineTo(-rx * 0.38, 0); ctx.lineTo(-rx * 0.65, ry * 0.85); ctx.lineTo(0, ry * 0.25);
+          }
+          ctx.closePath(); ctx.fill(); ctx.restore();
+
+          // Fins
+          ctx.fillStyle = fish.palette.finColor; ctx.globalAlpha = 0.84;
+          if (fish.shape === 'angelfish' || fish.shape === 'sunfish') {
+            ctx.beginPath(); ctx.moveTo(-rx * 0.15, -ry * 0.6); ctx.quadraticCurveTo(-rx * 0.55, -ry * 1.55, -rx * 0.85, -ry * 1.45); ctx.quadraticCurveTo(-rx * 0.5, -ry * 0.7, -rx * 0.6, -ry * 0.35); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-rx * 0.15, ry * 0.6); ctx.quadraticCurveTo(-rx * 0.55, ry * 1.55, -rx * 0.85, ry * 1.45); ctx.quadraticCurveTo(-rx * 0.5, ry * 0.7, -rx * 0.6, ry * 0.35); ctx.closePath(); ctx.fill();
+          } else if (fish.shape === 'betta') {
+            ctx.beginPath(); ctx.moveTo(rx * 0.1, -ry * 0.7); ctx.quadraticCurveTo(-rx * 0.35, -ry * 1.5, -rx * 0.75, -ry * 0.9); ctx.lineTo(-rx * 0.6, -ry * 0.4); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(rx * 0.05, ry * 0.7); ctx.quadraticCurveTo(-rx * 0.4, ry * 1.55, -rx * 0.8, ry * 0.95); ctx.lineTo(-rx * 0.6, ry * 0.4); ctx.closePath(); ctx.fill();
+          } else if (fish.shape === 'shark') {
+            ctx.beginPath(); ctx.moveTo(rx * 0.2, -ry * 0.72); ctx.quadraticCurveTo(-rx * 0.1, -ry * 1.78, -rx * 0.35, -ry * 1.55); ctx.quadraticCurveTo(-rx * 0.25, -ry * 0.9, -rx * 0.32, -ry * 0.7); ctx.closePath(); ctx.fill();
+          } else if (fish.shape !== 'ray') {
+            ctx.beginPath(); ctx.moveTo(rx * 0.15, -ry * 0.82); ctx.quadraticCurveTo(-rx * 0.2, -ry * 1.42, -rx * 0.52, -ry * 0.75); ctx.closePath(); ctx.fill();
+          }
+          ctx.globalAlpha = 1;
+
+          const bodyPath = () => {
+            ctx.beginPath();
+            if (fish.shape === 'angelfish') {
+              ctx.moveTo(rx, 0); ctx.quadraticCurveTo(rx * 0.25, -ry * 1.05, -rx * 0.55, -ry * 0.75); ctx.quadraticCurveTo(-rx * 0.95, 0, -rx * 0.55, ry * 0.75); ctx.quadraticCurveTo(rx * 0.25, ry * 1.05, rx, 0);
+            } else if (fish.shape === 'ray') {
+              const wf = Math.sin(phase * 0.9) * ry * 0.22;
+              ctx.moveTo(rx * 0.92, 0); ctx.quadraticCurveTo(rx * 0.25, -ry * 0.45, -rx * 0.15, -ry * 1.15 - wf); ctx.quadraticCurveTo(-rx * 0.55, -ry * 0.55, -rx * 0.85, 0);
+              ctx.quadraticCurveTo(-rx * 0.55, ry * 0.55, -rx * 0.15, ry * 1.05 + wf); ctx.quadraticCurveTo(rx * 0.25, ry * 0.45, rx * 0.92, 0);
+            } else if (fish.shape === 'shark') {
+              ctx.moveTo(rx, ry * 0.08); ctx.quadraticCurveTo(rx * 0.5, -ry * 0.95, -rx * 0.1, -ry * 0.88); ctx.quadraticCurveTo(-rx * 0.65, -ry * 0.7, -rx * 0.9, -ry * 0.24);
+              ctx.lineTo(-rx * 0.9, ry * 0.24); ctx.quadraticCurveTo(-rx * 0.4, ry * 0.85, rx * 0.35, ry * 0.78); ctx.quadraticCurveTo(rx * 0.78, ry * 0.58, rx, ry * 0.08);
+            } else if (fish.shape === 'sunfish' || fish.shape === 'puffer') {
+              ctx.ellipse(0, 0, rx * 0.9, ry * 0.97, 0, 0, Math.PI * 2);
+            } else if (fish.shape === 'eel') {
+              ctx.moveTo(rx, 0); ctx.bezierCurveTo(rx * 0.5, -ry * 1.15, -rx * 0.4, -ry * 0.95, -rx * 0.92, -ry * 0.35);
+              ctx.lineTo(-rx * 0.92, ry * 0.35); ctx.bezierCurveTo(-rx * 0.4, ry * 0.95, rx * 0.5, ry * 1.15, rx, 0);
+            } else if (fish.shape === 'goldfish' || fish.shape === 'koi') {
+              ctx.moveTo(rx * 0.95, ry * 0.05); ctx.bezierCurveTo(rx * 0.55, -ry * 1.15, -rx * 0.5, -ry * 1.05, -rx * 0.88, -ry * 0.22);
+              ctx.lineTo(-rx * 0.88, ry * 0.22); ctx.bezierCurveTo(-rx * 0.5, ry * 1.18, rx * 0.55, ry * 1.1, rx * 0.95, ry * 0.05);
+            } else {
+              ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+            }
+            ctx.closePath();
+          };
+
+          ctx.save(); bodyPath();
+          if (fish.pattern === 'gradient') {
+            const g = ctx.createLinearGradient(-rx, -ry, rx, ry);
+            g.addColorStop(0, fish.palette.bodySecondary); g.addColorStop(0.55, fish.palette.bodyPrimary); g.addColorStop(1, fish.palette.accentColor);
+            ctx.fillStyle = g;
+          } else {
+            const g = ctx.createLinearGradient(0, -ry, 0, ry);
+            g.addColorStop(0, fish.palette.bodyPrimary); g.addColorStop(1, fish.palette.bodySecondary);
+            ctx.fillStyle = fish.pattern === 'bicolor' ? fish.palette.bodyPrimary : g;
+          }
+          ctx.fill(); ctx.clip();
+
+          if (fish.pattern === 'striped') {
+            ctx.fillStyle = fish.palette.bodySecondary; ctx.globalAlpha = 0.62;
+            for (let sx = -rx * 0.55; sx <= rx * 0.45; sx += rx * 0.34) {
+              ctx.beginPath(); ctx.ellipse(sx, 0, rx * 0.1, ry * 1.25, 0.12, 0, Math.PI * 2); ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+          } else if (fish.pattern === 'spotted') {
+            ctx.fillStyle = fish.palette.accentColor; ctx.globalAlpha = 0.72;
+            [[-0.35, -0.25, 0.14], [-0.05, 0.18, 0.16], [0.2, -0.22, 0.12], [-0.45, 0.22, 0.11]].forEach(([ox, oy, sr]) => {
+              ctx.beginPath(); ctx.arc(rx * ox, ry * oy, Math.max(2, ry * sr), 0, Math.PI * 2); ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+          } else if (fish.pattern === 'bicolor') {
+            ctx.fillStyle = fish.palette.bodySecondary; ctx.fillRect(-rx * 1.1, 0, rx * 1.4, ry * 1.2);
+          } else if (fish.pattern === 'marbled') {
+            ctx.fillStyle = fish.palette.accentColor; ctx.globalAlpha = 0.75;
+            ctx.beginPath(); ctx.ellipse(-rx * 0.25, -ry * 0.2, rx * 0.28, ry * 0.38, 0.4, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = fish.palette.bodySecondary;
+            ctx.beginPath(); ctx.ellipse(rx * 0.18, ry * 0.18, rx * 0.24, ry * 0.32, -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.globalAlpha = 1;
+          }
+
+          const hl = ctx.createLinearGradient(0, -ry, 0, 0);
+          hl.addColorStop(0, 'rgba(255,255,255,0.32)'); hl.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = hl; ctx.fillRect(-rx, -ry, rx * 2, ry);
+          ctx.restore();
+
+          bodyPath(); ctx.strokeStyle = 'rgba(15, 23, 42, 0.35)'; ctx.lineWidth = Math.max(1, 1.3 * scale); ctx.stroke();
+
+          if (fish.shape === 'shark') {
+            ctx.strokeStyle = 'rgba(15, 23, 42, 0.5)'; ctx.lineWidth = Math.max(1, 1.2 * scale);
+            for (let g = 0; g < 3; g++) {
+              const gx = rx * (0.28 - g * 0.11);
+              ctx.beginPath(); ctx.moveTo(gx, -ry * 0.15); ctx.lineTo(gx - rx * 0.04, ry * 0.22); ctx.stroke();
+            }
+          } else if (fish.shape === 'koi') {
+            ctx.strokeStyle = fish.palette.finColor; ctx.lineWidth = Math.max(1, 1.3 * scale);
+            ctx.beginPath(); ctx.moveTo(rx * 0.88, ry * 0.15); ctx.quadraticCurveTo(rx * 1.05, ry * 0.35, rx * 0.98, ry * 0.48); ctx.stroke();
+          }
+
+          if (fish.shape !== 'ray') {
+            ctx.save(); ctx.translate(rx * 0.15, ry * 0.15); ctx.rotate(finWag);
+            ctx.fillStyle = fish.palette.finColor; ctx.globalAlpha = 0.78;
+            ctx.beginPath(); ctx.ellipse(-rx * 0.14, ry * 0.08, rx * 0.22, ry * 0.16, -0.35, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+          }
+
+          const eyeX = fish.shape === 'ray' ? rx * 0.42 : rx * 0.56;
+          const eyeY = fish.shape === 'ray' ? -ry * 0.12 : -ry * 0.16;
+          const eyeR = Math.max(2.6, Math.min(rx, ry) * 0.21);
+          ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.arc(eyeX, eyeY, eyeR, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#0F172A'; ctx.beginPath(); ctx.arc(eyeX + eyeR * 0.18, eyeY, eyeR * 0.58, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.arc(eyeX + eyeR * 0.32, eyeY - eyeR * 0.24, eyeR * 0.22, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
+        }
+
+        function renderThumb(canvas, fish) {
+          const w = canvas.width, h = canvas.height;
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, w, h);
+          const scale = Math.min((w * 0.34) / Math.max(fish.radiusX, 16), (h * 0.33) / Math.max(fish.radiusY, 12), 1.1);
+          drawFish(ctx, fish, { x: w * 0.53, y: h * 0.52, scale, facing: 1, phase: 0.4 });
+        }
+
+        // Load Persisted State
+        let caughtRecords = [];
+        try {
+          const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+          if (Array.isArray(raw)) caughtRecords = raw;
+        } catch {}
+
+        let savedNickname = localStorage.getItem(NICKNAME_KEY) || '';
+
+        let shopState = {
+          availableScore: caughtRecords.reduce((s, r) => s + r.totalScore, 0),
+          equippedRodId: 'rod_common',
+          ownedRods: [{ rodId: 'rod_common', remainingUses: null }],
+        };
+        try {
+          const sraw = JSON.parse(localStorage.getItem(SHOP_STORAGE_KEY) || 'null');
+          if (sraw && typeof sraw === 'object') {
+            const owned = Array.isArray(sraw.ownedRods) ? sraw.ownedRods : shopState.ownedRods;
+            if (!owned.some((r) => r.rodId === 'rod_common')) owned.unshift({ rodId: 'rod_common', remainingUses: null });
+            shopState = {
+              availableScore: typeof sraw.availableScore === 'number' ? Math.max(0, sraw.availableScore) : shopState.availableScore,
+              equippedRodId: typeof sraw.equippedRodId === 'string' ? sraw.equippedRodId : 'rod_common',
+              ownedRods: owned,
+            };
+          }
+        } catch {}
+
+        const tankCanvas = document.getElementById('tankCanvas');
+        const tankWrapper = document.getElementById('tankWrapper');
+        const emptyHint = document.getElementById('emptyHint');
+        const castBtn = document.getElementById('castBtn');
+        const addOneBtn = document.getElementById('addOneBtn');
+        const autoAddBtn = document.getElementById('autoAddBtn');
+        const addThreeBtn = document.getElementById('addThreeBtn');
+        const rosterList = document.getElementById('rosterList');
+        const tabTankBtn = document.getElementById('tabTankBtn');
+        const tabCaughtBtn = document.getElementById('tabCaughtBtn');
+
+        let size = { width: 860, height: 540 };
+        const initialAllowed = getUnlockedGrades(caughtRecords);
+        let fishes = [
+          createRandomFish(860, 540, null, false, initialAllowed),
+          createRandomFish(860, 540, null, false, initialAllowed),
+          createRandomFish(860, 540, null, false, initialAllowed),
+          createRandomFish(860, 540, null, false, initialAllowed),
+        ];
+
+        let activeTab = 'tank';
+        let hookPhase = 'IDLE';
+        const hook = { x: 430, y: -30, targetX: 430, hookedFishId: null, hookedStartY: 280, reelRatio: 0, shakeUntil: 0 };
+        const keys = { left: false, right: false };
+        let bubbles = [], splashes = [], floatingTexts = [];
+        let challenge = null;
+        let needlePos = 0.15, needleDir = 1;
+        let toastTimer = null, noticeTimer = null;
+        let addOneCooldownUntil = 0, addThreeCooldownUntil = 0, isAutoAdd = false;
+
+        // ==========================================
+        // 랭킹 서버 통신 함수 (단일 최고 점수 물고기 1마리 기준)
+        // ==========================================
+        function getMyBestCatchStats() {
+          if (caughtRecords.length === 0) {
+            return { bestScore: 0, maxLen: 0, bestFishName: '' };
+          }
+          let bestRec = caughtRecords[0];
+          for (const r of caughtRecords) {
+            if (r.totalScore > bestRec.totalScore) {
+              bestRec = r;
+            }
+          }
+          return {
+            bestScore: bestRec.totalScore,
+            maxLen: bestRec.fish.lengthCm,
+            bestFishName: bestRec.fish.name
+          };
+        }
+
+        async function syncMyScoreToServer(nickname) {
+          if (!db || !nickname) return false;
+          const { bestScore, maxLen, bestFishName } = getMyBestCatchStats();
+          if (bestScore <= 0) return false;
+
+          const { data: existing } = await db
+            .from('leaderboard')
+            .select('score, max_length, fish_name')
+            .eq('nickname', nickname)
+            .maybeSingle();
+
+          if (existing && existing.score >= bestScore) {
+            return true;
+          }
+
+          const { error } = await db
+            .from('leaderboard')
+            .upsert({
+              nickname: nickname,
+              score: bestScore,
+              max_length: maxLen,
+              fish_name: bestFishName,
+              updated_at: new Date().toISOString()
+            });
+
+          return !error;
+        }
+
+        async function renderLeaderboardModal() {
+          const listEl = document.getElementById('rankList');
+          const summaryEl = document.getElementById('rankMySummary');
+          const { bestScore, bestFishName } = getMyBestCatchStats();
+
+          summaryEl.textContent = savedNickname
+            ? `내 닉네임: ${savedNickname} · 최고 ${bestScore.toLocaleString()}점 (${bestFishName || '없음'})`
+            : `내 최고 기록: ${bestScore.toLocaleString()}점 · 닉네임을 등록해 순위에 오르세요!`;
+
+          if (!db) {
+            listEl.innerHTML = '<div style="padding:32px 12px;text-align:center;color:#fb7185;font-size:0.82rem;line-height:1.6;">Supabase URL 및 API Key가 설정되지 않았습니다.<br/>코드 상단의 SUPABASE_URL과 SUPABASE_ANON_KEY를 입력해주세요.</div>';
+            return;
+          }
+
+          listEl.innerHTML = '<div style="padding:32px 0;text-align:center;color:#94a3b8;font-size:0.85rem;">랭킹 불러오는 중...</div>';
+
+          const { data, error } = await db
+            .from('leaderboard')
+            .select('nickname, score, max_length, fish_name')
+            .order('score', { ascending: false })
+            .limit(20);
+
+          if (error) {
+            listEl.innerHTML = `<div style="padding:32px 0;text-align:center;color:#fb7185;font-size:0.82rem;">랭킹 조회 실패: ${error.message}</div>`;
+            return;
+          }
+
+          if (!data || data.length === 0) {
+            listEl.innerHTML = '<div style="padding:36px 0;text-align:center;color:#94a3b8;font-size:0.85rem;">아직 등록된 랭킹이 없습니다. 첫 번째 주인공이 되어보세요!</div>';
+            return;
+          }
+
+          listEl.innerHTML = '';
+          data.forEach((row, idx) => {
+            const rank = idx + 1;
+            const isMe = savedNickname && row.nickname === savedNickname;
+            const item = document.createElement('div');
+            item.className = `rank-row ${isMe ? 'me' : ''}`;
+            const badgeClass = rank <= 3 ? `rank-badge rank-${rank}` : 'rank-badge';
+            const fishInfo = row.fish_name ? `${escapeHtml(row.fish_name)} (${row.max_length} cm)` : `${row.max_length} cm`;
+
+            item.innerHTML = `
+              <div style="display:flex;align-items:center;min-width:0;padding-right:10px;">
+                <span class="${badgeClass} mono-num" style="flex-shrink:0;">${rank}</span>
+                <div style="min-width:0;">
+                  <div style="font-weight:700;font-size:0.9rem;color:#f8fafc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                    ${escapeHtml(row.nickname)} ${isMe ? '<span style="font-size:0.72rem;color:#38bdf8;">(나)</span>' : ''}
+                  </div>
+                  <div style="font-size:0.74rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px;">
+                    🐟 ${fishInfo}
+                  </div>
+                </div>
+              </div>
+              <div style="text-align:right;flex-shrink:0;">
+                <div class="mono-num" style="font-weight:700;color:#fbbf24;font-size:0.95rem;">${Number(row.score).toLocaleString()}점</div>
+              </div>
+            `;
+            listEl.appendChild(item);
+          });
+        }
+
+        function escapeHtml(str) {
+          return String(str).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+        }
+        // ==========================================
+
+        function saveRecords() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(caughtRecords.slice(0, 100))); } catch {} }
+        function saveShop() { try { localStorage.setItem(SHOP_STORAGE_KEY, JSON.stringify(shopState)); } catch {} }
+
+        function showNotice(msg, type = 'unlock') {
+          const el = document.getElementById('noticeToast');
+          el.textContent = msg;
+          el.className = `notice-toast visible ${type}`;
+          clearTimeout(noticeTimer);
+          noticeTimer = setTimeout(() => el.classList.remove('visible'), 3600);
+        }
+
+        function spawnSplash(x, y, maxR = 36) { splashes.push({ x, y, radius: 5, maxRadius: maxR, alpha: 0.9 }); }
+        function spawnBubbles(x, y, count) {
+          for (let i = 0; i < count; i++) {
+            bubbles.push({ x: x + (Math.random() - 0.5) * 26, y: y + (Math.random() - 0.5) * 14, r: 2 + Math.random() * 4.5, vy: 36 + Math.random() * 45, wobblePhase: Math.random() * 6, alpha: 0.75 });
+          }
+        }
+        function spawnText(x, y, text, color) { floatingTexts.push({ x, y, text, color, alpha: 1, vy: -38 }); }
+
+        function consumeRodUse() {
+          const rod = getRodById(shopState.equippedRodId);
+          if (rod.maxUses === null) return;
+          let brokeName = null;
+          shopState.ownedRods = shopState.ownedRods
+            .map((o) => {
+              if (o.rodId !== shopState.equippedRodId || o.remainingUses === null) return o;
+              const rem = Math.max(0, o.remainingUses - 1);
+              if (rem === 0) brokeName = rod.name;
+              return { ...o, remainingUses: rem };
+            })
+            .filter((o) => o.remainingUses === null || o.remainingUses > 0);
+          if (!shopState.ownedRods.some((o) => o.rodId === shopState.equippedRodId)) {
+            shopState.equippedRodId = 'rod_common';
+          }
+          saveShop();
+          if (brokeName) showNotice(`${brokeName} 내구도가 소진되어 기본 낚시대로 전환되었습니다.`, 'warn');
+        }
+
+        function updateCooldownButtons() {
+          const now = Date.now();
+          const s1 = Math.max(0, Math.ceil((addOneCooldownUntil - now) / 1000));
+          const s3 = Math.max(0, Math.ceil((addThreeCooldownUntil - now) / 1000));
+
+          addOneBtn.textContent = s1 > 0 ? `+ 물고기 추가 (${s1}s)` : '+ 물고기 추가';
+          addOneBtn.disabled = fishes.length >= MAX_TANK_FISH || s1 > 0;
+
+          addThreeBtn.textContent = s3 > 0 ? `+3마리 (${s3}s)` : '+3마리';
+          addThreeBtn.disabled = fishes.length >= MAX_TANK_FISH || s3 > 0;
+
+          if (isAutoAdd) {
+            autoAddBtn.className = 'btn btn-auto-on mono-num';
+            autoAddBtn.textContent = fishes.length >= MAX_TANK_FISH ? '자동 대기' : s1 > 0 ? `자동 (${s1}s)` : '자동 켜짐';
+          } else {
+            autoAddBtn.className = 'btn btn-sub mono-num';
+            autoAddBtn.textContent = '자동';
+          }
+        }
+
+        function updateUI() {
+          document.getElementById('statTankCount').textContent = fishes.length;
+          document.getElementById('statCaughtCount').textContent = caughtRecords.length;
+          document.getElementById('statAvailableScore').textContent = `${shopState.availableScore.toLocaleString()}점`;
+          tabTankBtn.textContent = `수조 현황 (${fishes.length})`;
+          tabCaughtBtn.textContent = `최근 어획 (${caughtRecords.length})`;
+          emptyHint.style.display = fishes.length === 0 && hookPhase === 'IDLE' ? 'flex' : 'none';
+
+          const rod = getRodById(shopState.equippedRodId);
+          const owned = shopState.ownedRods.find((r) => r.rodId === rod.id);
+          const rCfg = GRADE_CONFIG[rod.grade];
+          document.getElementById('rodStatusLine').innerHTML = `장착 낚시대: <strong style="color:#f1f5f9;">${rod.name}</strong> · <span class="grade-${rod.grade}" style="font-weight:700;">${rCfg.label} 등급</span> · <span class="mono-num" style="color:#6ee7b7;">${rod.maxUses === null ? '무제한 사용' : `남은 사용 ${owned ? owned.remainingUses : 0}회`}</span>`;
+
+          const next = getNextUnlockInfo(caughtRecords);
+          const unlockEl = document.getElementById('unlockStatusLine');
+          if (next) {
+            unlockEl.innerHTML = `다음 해금(<span class="grade-${next.nextGrade}" style="font-weight:700;">${GRADE_CONFIG[next.nextGrade].label}</span>): <strong class="mono-num" style="color:#f1f5f9;">${GRADE_CONFIG[next.prevGrade].label} ${next.currentCount}/${next.requiredCount}</strong>`;
+          } else {
+            unlockEl.innerHTML = '<strong style="color:#6ee7b7;">전 등급 해금 완료</strong>';
+          }
+
+          updateCooldownButtons();
+
+          if (hookPhase === 'IDLE') {
+            castBtn.textContent = '찌 던지기';
+            castBtn.className = 'btn btn-cast';
+            castBtn.disabled = false;
+            tankCanvas.style.cursor = 'crosshair';
+          } else if (hookPhase === 'CASTING' || hookPhase === 'DESCENDING') {
+            castBtn.textContent = '줄 감기';
+            castBtn.className = 'btn btn-reel';
+            castBtn.disabled = false;
+            tankCanvas.style.cursor = 'default';
+          } else {
+            castBtn.textContent = hookPhase === 'HOOKED' ? '입질 중!' : '회수 중...';
+            castBtn.className = 'btn btn-sub';
+            castBtn.disabled = true;
+            tankCanvas.style.cursor = 'default';
+          }
+
+          rosterList.innerHTML = '';
+          const items = activeTab === 'tank' ? fishes : caughtRecords.slice(0, 30);
+          if (items.length === 0) {
+            const msg = document.createElement('div');
+            msg.style.cssText = 'padding:40px 16px;text-align:center;font-size:0.78rem;color:#94a3b8;line-height:1.6;';
+            msg.innerHTML = activeTab === 'tank' ? '현재 수조에 물고기가 없습니다.<br/>물고기 추가 버튼으로 물고기를 넣어보세요.' : '아직 낚은 물고기가 없습니다.<br/>찌 던지기를 눌러 바늘을 내려보세요.';
+            rosterList.appendChild(msg);
+            return;
+          }
+
+          items.forEach((entry) => {
+            const fish = activeTab === 'tank' ? entry : entry.fish;
+            const cfg = GRADE_CONFIG[fish.grade];
+            const row = document.createElement('div');
+            row.className = 'roster-item';
+            const tb = document.createElement('div');
+            tb.className = 'thumb-box';
+            const c = document.createElement('canvas');
+            c.width = 60; c.height = 36;
+            renderThumb(c, fish);
+            tb.appendChild(c);
+
+            const info = document.createElement('div');
+            info.className = 'roster-info';
+            info.innerHTML = `
+              <div class="roster-name">${fish.name}</div>
+              <div class="roster-meta">
+                <span class="grade-${fish.grade}" style="font-weight:700;">${cfg.label}</span>
+                · <span class="mono-num">${fish.lengthCm} cm</span>
+                · <span class="mono-num">${activeTab === 'tank' ? `${fish.requiredHits}회${fish.grade === 'mythic' ? ' · 한정' : ''}` : `+${entry.totalScore.toLocaleString()}점`}</span>
+              </div>`;
+            row.appendChild(tb); row.appendChild(info);
+            rosterList.appendChild(row);
+          });
+        }
+
+        function addFish(count) {
+          const now = Date.now();
+          if (count === 1 && now < addOneCooldownUntil) return;
+          if (count === 3 && now < addThreeCooldownUntil) return;
+          const slots = Math.max(0, MAX_TANK_FISH - fishes.length);
+          const n = Math.min(count, slots);
+          if (n <= 0) return;
+
+          const allowed = getUnlockedGrades(caughtRecords);
+          const waterTop = Math.max(70, size.height * 0.16);
+          for (let i = 0; i < n; i++) {
+            const f = createRandomFish(size.width, size.height, null, true, allowed);
+            fishes.push(f);
+            spawnSplash(f.x, waterTop, 34);
+            spawnBubbles(f.x, waterTop + 12, 8);
+            if (i === 0) spawnText(f.x, waterTop + 28, `${GRADE_CONFIG[f.grade].label} 출현!`, GRADE_CONFIG[f.grade].accentHex);
+          }
+          sound.splash();
+          if (count === 1) addOneCooldownUntil = now + ADD_ONE_COOLDOWN_MS;
+          if (count === 3) addThreeCooldownUntil = now + ADD_THREE_COOLDOWN_MS;
+          updateUI();
+        }
+
+        setInterval(() => {
+          const now = Date.now();
+          if (isAutoAdd && now >= addOneCooldownUntil && fishes.length < MAX_TANK_FISH) {
+            addFish(1);
+          } else {
+            updateCooldownButtons();
+          }
+        }, 200);
+
+        function castHook(targetX) {
+          if (hookPhase !== 'IDLE') return;
+          const waterTop = Math.max(70, size.height * 0.16);
+          const dropX = typeof targetX === 'number'
+            ? Math.max(48, Math.min(size.width - 48, targetX))
+            : Math.max(48, Math.min(size.width - 48, hook.targetX || size.width * 0.5));
+          hook.x = dropX; hook.targetX = dropX; hook.y = -20; hook.hookedFishId = null; hook.reelRatio = 0;
+          hookPhase = 'CASTING'; sound.cast(); updateUI();
+          setTimeout(() => {
+            if (hookPhase === 'CASTING') {
+              hook.y = waterTop + 6;
+              spawnSplash(dropX, waterTop, 42); spawnBubbles(dropX, waterTop + 10, 7);
+              sound.splash(); hookPhase = 'DESCENDING'; updateUI();
+            }
+          }, 160);
+        }
+
+        function reelUp() {
+          if (hookPhase === 'DESCENDING' || hookPhase === 'CASTING') {
+            hook.hookedFishId = null; hookPhase = 'REELING_EMPTY'; updateUI();
+          }
+        }
+
+        function randomZoneStart(w) { return 0.08 + Math.random() * Math.max(0.08, 0.92 - w - 0.08); }
+
+        function openTimingBar(fish) {
+          const cfg = GRADE_CONFIG[fish.grade];
+          const rod = getRodById(shopState.equippedRodId);
+          const mod = getChallengeModifiers(rod.grade, fish.grade);
+          challenge = {
+            fish,
+            requiredHits: fish.requiredHits + mod.extraHits,
+            currentHits: 0,
+            perfectHits: 0,
+            missesRemaining: mod.maxMisses,
+            maxMisses: mod.maxMisses,
+            isUnderGeared: mod.isUnderGeared,
+            rodGrade: rod.grade,
+            zoneStart: randomZoneStart(cfg.zoneWidth),
+            zoneWidth: cfg.zoneWidth,
+            perfectWidth: cfg.perfectWidth,
+            needleSpeed: cfg.needleSpeed * mod.speedMultiplier,
+          };
+          needlePos = 0.15; needleDir = 1;
+          renderThumb(document.getElementById('timingThumb'), fish);
+          document.getElementById('timingMeta').innerHTML = `<span class="grade-${fish.grade}" style="font-weight:700;">${cfg.label} 등급</span> · <span class="mono-num">${fish.lengthCm} cm</span> · <span class="mono-num">${challenge.requiredHits}회 성공 필요</span>`;
+          document.getElementById('timingFishName').textContent = fish.name;
+          const pb = document.getElementById('penaltyBanner');
+          if (challenge.isUnderGeared) {
+            document.getElementById('penaltyBannerLeft').textContent = `낚시대 등급(${GRADE_CONFIG[rod.grade].label}) 부족 페널티 적용`;
+            pb.classList.add('visible');
+          } else {
+            pb.classList.remove('visible');
+          }
+          document.getElementById('timingFeedback').textContent = '초록 구간에 바늘이 올 때 스페이스바 또는 당기기를 누르세요.';
+          document.getElementById('timingFeedback').style.color = '#cbd5e1';
+          syncTimingBarDOM();
+          document.getElementById('timingOverlay').classList.add('visible');
+        }
+
+        function syncTimingBarDOM() {
+          if (!challenge) return;
+          const chEl = document.getElementById('timingChances');
+          chEl.textContent = `${challenge.missesRemaining} / ${challenge.maxMisses}`;
+          chEl.style.color = challenge.isUnderGeared ? '#fda4af' : '#f1f5f9';
+          document.getElementById('progressLabel').textContent = `성공 ${challenge.currentHits} / ${challenge.requiredHits}`;
+
+          const segs = document.getElementById('progressSegments');
+          segs.innerHTML = '';
+          for (let i = 0; i < challenge.requiredHits; i++) {
+            const d = document.createElement('div');
+            d.className = `progress-seg ${i < challenge.currentHits ? 'filled' : ''}`;
+            segs.appendChild(d);
+          }
+
+          const zEl = document.getElementById('timingZone');
+          zEl.style.left = `${challenge.zoneStart * 100}%`; zEl.style.width = `${challenge.zoneWidth * 100}%`;
+          const pEl = document.getElementById('timingPerfectZone');
+          pEl.style.left = `${(challenge.zoneStart + challenge.zoneWidth * 0.5 - challenge.perfectWidth * 0.5) * 100}%`;
+          pEl.style.width = `${challenge.perfectWidth * 100}%`;
+        }
+
+        function flashTimingCard(type) {
+          const card = document.getElementById('timingCard');
+          card.classList.remove('flash-perfect', 'flash-good', 'flash-miss');
+          void card.offsetWidth;
+          card.classList.add(`flash-${type}`);
+          setTimeout(() => card.classList.remove(`flash-${type}`), 260);
+        }
+
+        function strikeTiming() {
+          if (!challenge) return;
+          const zStart = challenge.zoneStart, zEnd = zStart + challenge.zoneWidth;
+          const center = zStart + challenge.zoneWidth * 0.5, pHalf = challenge.perfectWidth * 0.5;
+          const isPerfect = needlePos >= center - pHalf && needlePos <= center + pHalf;
+          const isHit = needlePos >= zStart && needlePos <= zEnd;
+
+          if (isHit) {
+            sound.hit(isPerfect);
+            challenge.currentHits += 1;
+            if (isPerfect) challenge.perfectHits += 1;
+            hook.reelRatio = Math.min(1, challenge.currentHits / challenge.requiredHits);
+            hook.shakeUntil = performance.now() + 180;
+            spawnBubbles(hook.x, hook.y, 6);
+            spawnText(hook.x, hook.y - 26, isPerfect ? '완벽! +보너스' : '당기기 성공!', isPerfect ? '#FBBF24' : '#34D399');
+            flashTimingCard(isPerfect ? 'perfect' : 'good');
+
+            if (challenge.currentHits >= challenge.requiredHits) {
+              hookPhase = 'REELING_SUCCESS';
+              document.getElementById('timingOverlay').classList.remove('visible');
+              updateUI();
+              return;
+            }
+            challenge.zoneStart = randomZoneStart(challenge.zoneWidth);
+            const fb = document.getElementById('timingFeedback');
+            fb.textContent = isPerfect ? `완벽! (${challenge.currentHits}/${challenge.requiredHits})` : `성공! (${challenge.currentHits}/${challenge.requiredHits})`;
+            fb.style.color = isPerfect ? '#fbbf24' : '#34d399';
+            syncTimingBarDOM();
+          } else {
+            sound.miss();
+            challenge.missesRemaining -= 1;
+            flashTimingCard('miss');
+            if (challenge.missesRemaining <= 0) {
+              const escaped = fishes.find((f) => f.id === hook.hookedFishId);
+              if (escaped) {
+                escaped.spookedUntil = performance.now() + 4200;
+                const dir = Math.random() > 0.5 ? 1 : -1;
+                escaped.facing = dir; escaped.vx = dir * 270;
+              }
+              spawnText(hook.x, hook.y - 24, '물고기가 도망갔다!', '#F87171');
+              spawnBubbles(hook.x, hook.y, 10);
+              hook.hookedFishId = null; challenge = null; hookPhase = 'REELING_EMPTY';
+              document.getElementById('timingOverlay').classList.remove('visible');
+              consumeRodUse();
+              updateUI();
+              return;
+            }
+            const fb = document.getElementById('timingFeedback');
+            fb.textContent = `빗나감! 남은 기회 ${challenge.missesRemaining}회`;
+            fb.style.color = '#fb7185';
+            syncTimingBarDOM();
+          }
+        }
+
+        function showCatchToast(rec) {
+          const cfg = GRADE_CONFIG[rec.fish.grade];
+          document.getElementById('toastFishName').textContent = rec.fish.name;
+          document.getElementById('toastMeta').innerHTML = `<span class="grade-${rec.fish.grade}" style="font-weight:700;">${cfg.label}</span> · <span class="mono-num">${rec.fish.lengthCm} cm</span>`;
+          document.getElementById('toastScore').textContent = `+${rec.totalScore.toLocaleString()} 점 획득`;
+          renderThumb(document.getElementById('toastThumb'), rec.fish);
+          const toast = document.getElementById('catchToast');
+          toast.classList.add('visible');
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => toast.classList.remove('visible'), 4000);
+        }
+
+        function resizeCanvas() {
+          const rect = tankWrapper.getBoundingClientRect();
+          if (rect.width < 100 || rect.height < 100) return;
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          size = { width: rect.width, height: rect.height };
+          tankCanvas.width = Math.round(rect.width * dpr);
+          tankCanvas.height = Math.round(rect.height * dpr);
+        }
+        resizeCanvas();
+        new ResizeObserver(resizeCanvas).observe(tankWrapper);
+
+        let lastTime = performance.now();
+        const needleWrap = document.getElementById('timingNeedleWrap');
+
+        function frame(now) {
+          const dt = Math.min(0.05, (now - lastTime) / 1000);
+          lastTime = now;
+          const t = now / 1000;
+          const { width, height } = size;
+          const waterTop = Math.max(70, height * 0.16);
+          const sandTop = height - 46;
+
+          if (challenge) {
+            needlePos += needleDir * challenge.needleSpeed * dt;
+            if (needlePos >= 1) { needlePos = 2 - needlePos; needleDir = -1; }
+            else if (needlePos <= 0) { needlePos = -needlePos; needleDir = 1; }
+            needlePos = Math.max(0, Math.min(1, needlePos));
+            needleWrap.style.transform = `translateX(${needlePos * 100}%)`;
+          }
+
+          if (Math.random() < dt * 4.5) {
+            bubbles.push({ x: width * 0.14 + (Math.random() - 0.5) * 18, y: sandTop - 6, r: 1.8 + Math.random() * 3.4, vy: 34 + Math.random() * 28, wobblePhase: Math.random() * 6, alpha: 0.6 });
+          }
+          bubbles = bubbles.filter((b) => { b.y -= b.vy * dt; b.wobblePhase += dt * 4; b.x += Math.sin(b.wobblePhase) * 12 * dt; return b.y > waterTop + 2; });
+          splashes = splashes.filter((s) => { s.radius += 68 * dt; s.alpha -= 1.45 * dt; return s.alpha > 0.02 && s.radius < s.maxRadius; });
+          floatingTexts = floatingTexts.filter((ft) => { ft.y += ft.vy * dt; ft.alpha -= 0.72 * dt; return ft.alpha > 0.02; });
+
+          if (hookPhase === 'CASTING') {
+            hook.y += 420 * dt;
+          } else if (hookPhase === 'DESCENDING') {
+            if (keys.left) hook.targetX -= 220 * dt;
+            if (keys.right) hook.targetX += 220 * dt;
+            hook.targetX = Math.max(48, Math.min(width - 48, hook.targetX));
+            hook.x += (hook.targetX - hook.x) * Math.min(1, dt * 6);
+            hook.y += 145 * dt;
+            if (hook.y >= sandTop - 16) { spawnBubbles(hook.x, hook.y, 4); hookPhase = 'REELING_EMPTY'; updateUI(); }
+          } else if (hookPhase === 'HOOKED') {
+            const hf = fishes.find((f) => f.id === hook.hookedFishId);
+            if (hf) {
+              const desiredY = hook.hookedStartY - (hook.hookedStartY - (waterTop + 26)) * hook.reelRatio;
+              hook.y += (desiredY - hook.y) * Math.min(1, dt * 8);
+              hf.x = hook.x + Math.sin(t * 9) * (hf.grade === 'mythic' ? 20 : hf.grade === 'legendary' ? 16 : 9);
+              hf.y = hook.y + 8; hf.facing = Math.sin(t * 4.5) >= 0 ? 1 : -1; hf.swimPhase += dt * 16;
+            }
+          } else if (hookPhase === 'REELING_SUCCESS') {
+            hook.y -= 390 * dt;
+            const hf = fishes.find((f) => f.id === hook.hookedFishId);
+            if (hf) { hf.x = hook.x; hf.y = hook.y + 10; hf.swimPhase += dt * 18; }
+            if (hook.y <= waterTop && hook.y > waterTop - 25) { spawnSplash(hook.x, waterTop, 46); spawnBubbles(hook.x, waterTop + 8, 8); }
+            if (hook.y <= -40) {
+              const caught = fishes.find((f) => f.id === hook.hookedFishId);
+              hook.hookedFishId = null; hookPhase = 'IDLE';
+              if (caught && challenge) {
+                sound.success();
+                fishes = fishes.filter((f) => f.id !== caught.id);
+                const prevUnlocked = getUnlockedGrades(caughtRecords);
+                const rec = { id: `catch_${Date.now()}`, fish: caught, caughtAt: Date.now(), perfectHits: challenge.perfectHits, totalScore: caught.points + challenge.perfectHits * 50 };
+                caughtRecords.unshift(rec);
+                saveRecords();
+                shopState.availableScore += rec.totalScore;
+                saveShop();
+                consumeRodUse();
+                showCatchToast(rec);
+
+                // 닉네임이 등록되어 있으면 단일 최고 기록 자동 갱신
+                if (savedNickname) {
+                  syncMyScoreToServer(savedNickname);
+                }
+
+                const nextUnlocked = getUnlockedGrades(caughtRecords);
+                if (nextUnlocked.length > prevUnlocked.length) {
+                  const newly = nextUnlocked[nextUnlocked.length - 1];
+                  showNotice(`${GRADE_CONFIG[newly].label} 등급 물고기 출현이 해금되었습니다!`, 'unlock');
+                }
+              }
+              challenge = null;
+              updateUI();
+            }
+          } else if (hookPhase === 'REELING_EMPTY') {
+            hook.y -= 380 * dt;
+            if (hook.y <= -25) { hookPhase = 'IDLE'; updateUI(); }
+          }
+
+          // Mythic Fish Despawn Check
+          let expiredAny = false;
+          fishes = fishes.filter((f) => {
+            if (f.id !== hook.hookedFishId && f.expiresAt && now >= f.expiresAt) {
+              spawnBubbles(f.x, f.y, 12);
+              spawnText(f.x, f.y - 20, '신화 물고기가 사라졌다...', '#FB7185');
+              expiredAny = true;
+              return false;
+            }
+            return true;
+          });
+          if (expiredAny) updateUI();
+
+          // Swim & Collision
+          const minY = waterTop + 34, maxY = sandTop - 28;
+          for (const fish of fishes) {
+            if (fish.id === hook.hookedFishId) continue;
+            fish.swimPhase += dt * (4.5 + Math.abs(fish.vx) * 0.065);
+            const spooked = fish.spookedUntil > now;
+            if (!spooked) {
+              if (Math.random() < dt * 0.45) fish.preferredDepthRatio = 0.18 + Math.random() * 0.68;
+              fish.vx += (fish.facing * fish.baseSpeed - fish.vx) * Math.min(1, dt * 2.2);
+              const ty = minY + fish.preferredDepthRatio * (maxY - minY) + Math.sin(fish.swimPhase * 0.45) * 14;
+              fish.vy += ((ty - fish.y) * 1.4 - fish.vy) * Math.min(1, dt * 2.5);
+              if (hookPhase === 'DESCENDING') {
+                const dx = hook.x - fish.x, dy = hook.y - fish.y, d = Math.hypot(dx, dy);
+                if (d < 130 && d > 8) {
+                  fish.vx += (dx / d) * 58 * dt; fish.vy += (dy / d) * 58 * dt;
+                  if (Math.abs(dx) > 12) fish.facing = dx >= 0 ? 1 : -1;
+                }
+              }
+            } else {
+              fish.vx *= Math.pow(0.55, dt);
+            }
+            fish.x += fish.vx * dt; fish.y += fish.vy * dt;
+            if (fish.x < 48 + fish.radiusX) { fish.x = 48 + fish.radiusX; fish.facing = 1; fish.vx = Math.abs(fish.vx) || fish.baseSpeed; }
+            else if (fish.x > width - 48 - fish.radiusX) { fish.x = width - 48 - fish.radiusX; fish.facing = -1; fish.vx = -(Math.abs(fish.vx) || fish.baseSpeed); }
+            if (fish.y < minY) { fish.y = minY; fish.vy = Math.abs(fish.vy) * 0.5; }
+            else if (fish.y > maxY) { fish.y = maxY; fish.vy = -Math.abs(fish.vy) * 0.5; }
+
+            if (hookPhase === 'DESCENDING' && !spooked) {
+              const norm = ((hook.x - fish.x) / Math.max(18, fish.radiusX * 1.05)) ** 2 + ((hook.y - fish.y) / Math.max(14, fish.radiusY * 1.25)) ** 2;
+              if (norm <= 1.08) {
+                hook.hookedFishId = fish.id; hook.hookedStartY = hook.y; hook.reelRatio = 0; hook.shakeUntil = now + 260;
+                hookPhase = 'HOOKED'; sound.bite();
+                spawnBubbles(hook.x, hook.y, 12); spawnSplash(hook.x, waterTop, 38);
+                spawnText(hook.x, hook.y - 26, '입질이다!', '#FBBF24');
+                openTimingBar(fish); updateUI();
+                break;
+              }
+            }
+          }
+
+          // Render
+          const ctx = tankCanvas.getContext('2d');
+          const dpr = tankCanvas.width / Math.max(1, width);
+          ctx.save(); ctx.scale(dpr, dpr);
+          if (hook.shakeUntil > now) {
+            const m = ((hook.shakeUntil - now) / 260) * 3.5;
+            ctx.translate((Math.random() - 0.5) * m * 2, (Math.random() - 0.5) * m * 2);
+          }
+
+          const sky = ctx.createLinearGradient(0, 0, 0, waterTop);
+          sky.addColorStop(0, '#0B1726'); sky.addColorStop(1, '#132B42');
+          ctx.fillStyle = sky; ctx.fillRect(0, 0, width, waterTop + 8);
+
+          const wg = ctx.createLinearGradient(0, waterTop, 0, height);
+          wg.addColorStop(0, '#0E4868'); wg.addColorStop(0.45, '#09314A'); wg.addColorStop(1, '#051A2B');
+          ctx.beginPath(); ctx.moveTo(0, waterTop);
+          for (let wx = 0; wx <= width; wx += 24) ctx.lineTo(wx, waterTop + Math.sin(wx * 0.018 + t * 1.9) * 3.2 + Math.cos(wx * 0.035 - t * 1.3) * 1.6);
+          ctx.lineTo(width, height); ctx.lineTo(0, height); ctx.closePath();
+          ctx.fillStyle = wg; ctx.fill();
+
+          ctx.save(); ctx.globalCompositeOperation = 'screen';
+          for (let i = 0; i < 5; i++) {
+            const rx = width * (0.14 + i * 0.19) + Math.sin(t * 0.5 + i) * 24;
+            const rg = ctx.createLinearGradient(rx, waterTop, rx + 70, height * 0.85);
+            rg.addColorStop(0, 'rgba(186,230,253,0.11)'); rg.addColorStop(1, 'rgba(186,230,253,0)');
+            ctx.fillStyle = rg;
+            ctx.beginPath(); ctx.moveTo(rx - 24, waterTop); ctx.lineTo(rx + 26, waterTop); ctx.lineTo(rx + 125, height * 0.9); ctx.lineTo(rx + 15, height * 0.9); ctx.closePath(); ctx.fill();
+          }
+          ctx.restore();
+
+          ctx.beginPath();
+          for (let wx = 0; wx <= width; wx += 18) {
+            const wy = waterTop + Math.sin(wx * 0.018 + t * 1.9) * 3.2 + Math.cos(wx * 0.035 - t * 1.3) * 1.6;
+            if (wx === 0) ctx.moveTo(wx, wy); else ctx.lineTo(wx, wy);
+          }
+          ctx.strokeStyle = 'rgba(186,230,253,0.55)'; ctx.lineWidth = 2; ctx.stroke();
+
+          SEAWEEDS.forEach((sw) => {
+            const bx = sw.xRatio * width, by = sandTop + 6, segH = sw.height / sw.segments;
+            ctx.save(); ctx.strokeStyle = `hsla(${sw.hue},58%,34%,0.78)`; ctx.lineWidth = 8; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(bx, by);
+            for (let s = 1; s <= sw.segments; s++) ctx.lineTo(bx + Math.sin(t * 1.6 + sw.phase + s * 0.55) * s * 3.2, by - segH * s);
+            ctx.stroke(); ctx.restore();
+          });
+
+          const sg = ctx.createLinearGradient(0, sandTop, 0, height);
+          sg.addColorStop(0, '#2C3E4C'); sg.addColorStop(1, '#121C25');
+          ctx.fillStyle = sg; ctx.beginPath(); ctx.moveTo(0, sandTop + 4);
+          for (let sx = 0; sx <= width; sx += 40) ctx.lineTo(sx, sandTop + Math.sin(sx * 0.025) * 4);
+          ctx.lineTo(width, height); ctx.lineTo(0, height); ctx.closePath(); ctx.fill();
+
+          PEBBLES.forEach((p) => { ctx.fillStyle = p.color; ctx.beginPath(); ctx.ellipse(p.xRatio * width, sandTop + 14, p.rx, p.ry, 0, 0, Math.PI * 2); ctx.fill(); });
+          ctx.fillStyle = '#475569'; ctx.fillRect(width * 0.14 - 16, sandTop - 6, 32, 12);
+
+          bubbles.forEach((b) => {
+            ctx.strokeStyle = `rgba(224,242,254,${b.alpha})`; ctx.fillStyle = `rgba(186,230,253,${b.alpha * 0.28})`;
+            ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+          });
+
+          if (hookPhase === 'IDLE') {
+            const ax = Math.max(48, Math.min(width - 48, hook.targetX));
+            ctx.save(); ctx.setLineDash([4, 6]); ctx.strokeStyle = 'rgba(248,250,252,0.18)'; ctx.lineWidth = 1.2;
+            ctx.beginPath(); ctx.moveTo(ax, 8); ctx.lineTo(ax, waterTop); ctx.stroke(); ctx.setLineDash([]);
+            ctx.fillStyle = 'rgba(251,191,36,0.65)'; ctx.beginPath(); ctx.moveTo(ax, waterTop - 5); ctx.lineTo(ax - 5, waterTop - 13); ctx.lineTo(ax + 5, waterTop - 13); ctx.closePath(); ctx.fill();
+            ctx.restore();
+          }
+
+          fishes.forEach((f) => drawFish(ctx, f, { x: f.x, y: f.y, facing: f.facing, phase: f.swimPhase, isHooked: f.id === hook.hookedFishId, time: t, showTimer: true, nowMs: now }));
+
+          if (hookPhase !== 'IDLE') {
+            const bobY = waterTop + Math.sin(hook.x * 0.018 + t * 1.9) * 3.2 + (hookPhase === 'HOOKED' ? Math.sin(t * 20) * 4.5 : 0);
+            ctx.strokeStyle = 'rgba(241,245,249,0.72)'; ctx.lineWidth = 1.6;
+            ctx.beginPath(); ctx.moveTo(hook.x, 0); ctx.lineTo(hook.x, Math.max(hook.y, 0)); ctx.stroke();
+            if (hook.y > waterTop - 4) {
+              ctx.save(); ctx.translate(hook.x, bobY);
+              if (hookPhase === 'HOOKED') ctx.rotate(Math.sin(t * 18) * 0.18);
+              ctx.fillStyle = '#EF4444'; ctx.beginPath(); ctx.arc(0, 0, 8, Math.PI, 0); ctx.fill();
+              ctx.fillStyle = '#F8FAFC'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI); ctx.fill();
+              ctx.strokeStyle = '#FDE047'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(0, -15); ctx.stroke();
+              ctx.restore();
+            }
+            ctx.save(); ctx.translate(hook.x, hook.y);
+            ctx.strokeStyle = '#E2E8F0'; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(0, -8); ctx.lineTo(0, 6); ctx.arc(-5, 6, 5, 0, Math.PI, false); ctx.lineTo(-10, 2); ctx.stroke();
+            ctx.fillStyle = '#FB7185'; ctx.beginPath(); ctx.arc(-2, 8, 3.2, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+          }
+
+          splashes.forEach((s) => {
+            ctx.strokeStyle = `rgba(186,230,253,${s.alpha})`; ctx.lineWidth = 1.6;
+            ctx.beginPath(); ctx.ellipse(s.x, s.y, s.radius, s.radius * 0.28, 0, 0, Math.PI * 2); ctx.stroke();
+          });
+
+          floatingTexts.forEach((ft) => {
+            ctx.save(); ctx.globalAlpha = ft.alpha; ctx.font = '700 15px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillStyle = 'rgba(15,23,42,0.7)'; ctx.fillText(ft.text, ft.x + 1, ft.y + 1);
+            ctx.fillStyle = ft.color; ctx.fillText(ft.text, ft.x, ft.y); ctx.restore();
+          });
+
+          ctx.strokeStyle = 'rgba(186,230,253,0.14)'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, width - 2, height - 2);
+          ctx.restore();
+          requestAnimationFrame(frame);
+        }
+
+        // UI & Modal Wiring
+        addOneBtn.addEventListener('click', () => addFish(1));
+        addThreeBtn.addEventListener('click', () => addFish(3));
+        autoAddBtn.addEventListener('click', () => { isAutoAdd = !isAutoAdd; updateUI(); });
+        castBtn.addEventListener('click', () => (hookPhase === 'IDLE' ? castHook() : reelUp()));
+        document.getElementById('strikeBtn').addEventListener('click', strikeTiming);
+        document.getElementById('timingTrack').addEventListener('click', strikeTiming);
+        document.getElementById('closeToastBtn').addEventListener('click', () => document.getElementById('catchToast').classList.remove('visible'));
+
+        tankCanvas.addEventListener('pointermove', (e) => {
+          const r = tankCanvas.getBoundingClientRect();
+          hook.targetX = Math.max(48, Math.min(r.width - 48, e.clientX - r.left));
+        });
+        tankCanvas.addEventListener('click', (e) => {
+          if (hookPhase !== 'IDLE') return;
+          const r = tankCanvas.getBoundingClientRect();
+          castHook(e.clientX - r.left);
+        });
+
+        tabTankBtn.addEventListener('click', () => { activeTab = 'tank'; tabTankBtn.classList.add('active'); tabCaughtBtn.classList.remove('active'); updateUI(); });
+        tabCaughtBtn.addEventListener('click', () => { activeTab = 'caught'; tabCaughtBtn.classList.add('active'); tabTankBtn.classList.remove('active'); updateUI(); });
+
+        document.getElementById('clearTankBtn').addEventListener('click', () => {
+          if (hookPhase !== 'IDLE') reelUp();
+          challenge = null; document.getElementById('timingOverlay').classList.remove('visible');
+          fishes = []; updateUI();
+        });
+
+        const muteBtn = document.getElementById('muteBtn');
+        muteBtn.addEventListener('click', () => { sound.muted = !sound.muted; muteBtn.textContent = sound.muted ? '소리 켜기' : '소리 끄기'; });
+
+        const rankModal = document.getElementById('rankModal');
+        const shopModal = document.getElementById('shopModal');
+        const colModal = document.getElementById('collectionModal');
+        const guideModal = document.getElementById('guideModal');
+
+        // 랭킹 모달 이벤트
+        const nicknameInput = document.getElementById('nicknameInput');
+        if (savedNickname) nicknameInput.value = savedNickname;
+
+        document.getElementById('openRankBtn').addEventListener('click', () => {
+          rankModal.classList.add('open');
+          renderLeaderboardModal();
+        });
+        document.getElementById('closeRankBtn').addEventListener('click', () => rankModal.classList.remove('open'));
+
+        document.getElementById('rankForm').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const nick = nicknameInput.value.trim();
+          if (!nick) return;
+          const statusEl = document.getElementById('rankStatus');
+          const saveBtn = document.getElementById('saveRankBtn');
+
+          const { bestScore } = getMyBestCatchStats();
+          if (bestScore <= 0) {
+            statusEl.textContent = '물고기를 1마리 이상 낚은 뒤에 등록할 수 있습니다!';
+            statusEl.style.color = '#fb7185';
+            statusEl.style.display = 'block';
+            return;
+          }
+
+          saveBtn.disabled = true;
+          savedNickname = nick;
+          localStorage.setItem(NICKNAME_KEY, nick);
+
+          const ok = await syncMyScoreToServer(nick);
+          saveBtn.disabled = false;
+
+          statusEl.textContent = ok
+            ? '최고 기록이 서버에 반영되었습니다!'
+            : '등록에 실패했습니다. Supabase 설정을 확인해주세요.';
+          statusEl.style.color = ok ? '#34d399' : '#fb7185';
+          statusEl.style.display = 'block';
+          setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+
+          renderLeaderboardModal();
+        });
+
+        function renderShopModal() {
+          document.getElementById('shopScoreLabel').textContent = `${shopState.availableScore.toLocaleString()}점`;
+          const body = document.getElementById('shopBody');
+          body.innerHTML = '';
+          FISHING_RODS.forEach((rod) => {
+            const cfg = GRADE_CONFIG[rod.grade];
+            const owned = shopState.ownedRods.find((o) => o.rodId === rod.id);
+            const rem = owned ? owned.remainingUses : 0;
+            const isStarter = rod.maxUses === null;
+            const hasUsable = isStarter || (owned && rem > 0);
+            const isEquipped = shopState.equippedRodId === rod.id;
+            const canAfford = shopState.availableScore >= rod.price;
+
+            const card = document.createElement('div');
+            card.className = `shop-card ${isEquipped ? 'equipped' : ''}`;
+            card.innerHTML = `
+              <div style="min-width:220px;flex:1;">
+                <div style="font-size:0.75rem;color:#94a3b8;">
+                  <span class="grade-${rod.grade}" style="font-weight:700;">${cfg.label} 등급</span> · <span class="mono-num">${isStarter ? '무제한 사용' : `기본 내구도 ${rod.maxUses}회`}</span>
+                  ${hasUsable && !isStarter ? ` · <span class="mono-num" style="color:#6ee7b7;font-weight:700;">남은 사용 ${rem}회</span>` : ''}
+                </div>
+                <div style="font-size:1rem;font-weight:700;color:#f8fafc;margin-top:2px;">${rod.name}</div>
+                <div style="font-size:0.76rem;color:#94a3b8;margin-top:4px;">${rod.description}</div>
+              </div>`;
+
+            const btns = document.createElement('div');
+            btns.style.cssText = 'display:flex;gap:8px;align-items:center;flex-shrink:0;';
+            if (hasUsable) {
+              const eqBtn = document.createElement('button');
+              eqBtn.type = 'button';
+              eqBtn.className = 'btn btn-sub';
+              eqBtn.textContent = isEquipped ? '장착 중' : '장착하기';
+              eqBtn.disabled = isEquipped;
+              if (isEquipped) eqBtn.style.cssText = 'background:rgba(16,185,129,0.2);color:#6ee7b7;border:1px solid rgba(52,211,153,0.45);padding:8px 12px;font-size:0.78rem;';
+              else eqBtn.style.cssText = 'padding:8px 12px;font-size:0.78rem;';
+              eqBtn.addEventListener('click', () => { shopState.equippedRodId = rod.id; saveShop(); renderShopModal(); updateUI(); });
+              btns.appendChild(eqBtn);
+            }
+            if (!isStarter) {
+              const buyBtn = document.createElement('button');
+              buyBtn.type = 'button';
+              buyBtn.className = 'btn btn-shop mono-num';
+              buyBtn.style.cssText = 'padding:8px 14px;font-size:0.78rem;';
+              buyBtn.disabled = !canAfford;
+              buyBtn.textContent = `${hasUsable ? `충전 (+${rod.maxUses}회) · ` : '구매 · '}${rod.price.toLocaleString()}점`;
+              buyBtn.addEventListener('click', () => {
+                if (shopState.availableScore < rod.price) return;
+                shopState.availableScore -= rod.price;
+                const ex = shopState.ownedRods.find((o) => o.rodId === rod.id);
+                if (ex) ex.remainingUses = (ex.remainingUses || 0) + rod.maxUses;
+                else shopState.ownedRods.push({ rodId: rod.id, remainingUses: rod.maxUses });
+                shopState.equippedRodId = rod.id;
+                sound.hit(true);
+                saveShop(); renderShopModal(); updateUI();
+              });
+              btns.appendChild(buyBtn);
+            }
+            card.appendChild(btns);
+            body.appendChild(card);
+          });
+        }
+
+        function renderCollectionModal() {
+          const total = caughtRecords.reduce((s, r) => s + r.totalScore, 0);
+          const maxLen = caughtRecords.reduce((m, r) => Math.max(m, r.fish.lengthCm), 0);
+          document.getElementById('collectionSummary').textContent = `총 ${caughtRecords.length}마리 · 누적 ${total.toLocaleString()}점 · 최대 길이 ${maxLen} cm`;
+          const body = document.getElementById('collectionBody');
+          body.innerHTML = '';
+          if (caughtRecords.length === 0) {
+            body.innerHTML = '<div style="padding:48px 0;text-align:center;color:#94a3b8;font-size:0.875rem;">아직 낚아 올린 물고기가 없습니다. 수조에 찌를 던져 첫 물고기를 낚아보세요!</div>';
+            return;
+          }
+          const grid = document.createElement('div');
+          grid.className = 'collection-grid';
+          caughtRecords.forEach((rec) => {
+            const cfg = GRADE_CONFIG[rec.fish.grade];
+            const card = document.createElement('div'); card.className = 'roster-item';
+            const tb = document.createElement('div'); tb.className = 'thumb-box';
+            const c = document.createElement('canvas'); c.width = 72; c.height = 44; renderThumb(c, rec.fish); tb.appendChild(c);
+            const info = document.createElement('div'); info.className = 'roster-info';
+            info.innerHTML = `<div class="roster-meta"><span class="grade-${rec.fish.grade}" style="font-weight:700;">${cfg.label}</span> · <span class="mono-num">${rec.fish.lengthCm} cm</span> · <span class="mono-num" style="color:#fbbf24;">+${rec.totalScore.toLocaleString()}점</span></div><div class="roster-name" style="font-size:0.875rem;margin-top:2px;">${rec.fish.name}</div>`;
+            card.appendChild(tb); card.appendChild(info); grid.appendChild(card);
+          });
+          body.appendChild(grid);
+        }
+
+        const openShop = () => { renderShopModal(); shopModal.classList.add('open'); };
+        document.getElementById('openShopBtn').addEventListener('click', openShop);
+        document.getElementById('openShopNavBtn').addEventListener('click', openShop);
+        document.getElementById('quickShopLink').addEventListener('click', openShop);
+        document.getElementById('closeShopBtn').addEventListener('click', () => shopModal.classList.remove('open'));
+
+        document.getElementById('openCollectionBtn').addEventListener('click', () => { renderCollectionModal(); colModal.classList.add('open'); });
+        document.getElementById('closeCollectionBtn').addEventListener('click', () => colModal.classList.remove('open'));
+        document.getElementById('clearHistoryBtn').addEventListener('click', () => { caughtRecords = []; saveRecords(); renderCollectionModal(); updateUI(); });
+        document.getElementById('openGuideBtn').addEventListener('click', () => guideModal.classList.add('open'));
+        document.getElementById('closeGuideBtn').addEventListener('click', () => guideModal.classList.remove('open'));
+        [rankModal, shopModal, colModal, guideModal].forEach((m) => m.addEventListener('click', (e) => { if (e.target === m) m.classList.remove('open'); }));
+
+        window.addEventListener('keydown', (e) => {
+          if (e.key === 'ArrowLeft') keys.left = true;
+          if (e.key === 'ArrowRight') keys.right = true;
+          if (challenge && (e.code === 'Space' || e.code === 'Enter')) {
+            e.preventDefault(); e.stopPropagation(); strikeTiming(); return;
+          }
+          const isTyping = document.activeElement && ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+          if (!isTyping && !challenge && !rankModal.classList.contains('open') && !shopModal.classList.contains('open') && !colModal.classList.contains('open') && !guideModal.classList.contains('open')) {
+            if (e.code === 'Space' && document.activeElement.tagName !== 'BUTTON') {
+              e.preventDefault(); hookPhase === 'IDLE' ? castHook() : reelUp();
+            }
+          }
+        }, true);
+
+        window.addEventListener('keyup', (e) => {
+          if (e.key === 'ArrowLeft') keys.left = false;
+          if (e.key === 'ArrowRight') keys.right = false;
+        });
+
+        updateUI();
+        requestAnimationFrame(frame);
+      })();
+    </script>
+  </body>
+</html>
